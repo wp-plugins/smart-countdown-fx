@@ -529,7 +529,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		$plugin_url = plugins_url() . '/' . dirname( plugin_basename( __FILE__ ) );
 		
 		// this script is required for extended animation easing
-		wp_register_script( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js' );
+		wp_register_script( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js', array( 'jquery' ) );
 		wp_enqueue_script( 'easing-script' );
 		
 		wp_register_script( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js' );
