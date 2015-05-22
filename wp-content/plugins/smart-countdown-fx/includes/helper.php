@@ -117,8 +117,8 @@ abstract class SmartCountdown_Helper {
 						$name = $layout->getName();
 						$value = ( string ) $layout;
 						
-						if ( isset( static::$layout_tpls [$name] ) && isset( static::$layout_tpls [$name] [$value] ) ) {
-							$classes [] = static::$layout_tpls [$name] [$value];
+						if ( isset( self::$layout_tpls [$name] ) && isset( self::$layout_tpls [$name] [$value] ) ) {
+							$classes [] = self::$layout_tpls [$name] [$value];
 						}
 					}
 					
@@ -255,7 +255,7 @@ abstract class SmartCountdown_Helper {
 	<?php echo $layout['title_before_style']; ?>></div>
 <div class="<?php echo ($layout['counter_class']); ?>">
 			
-			<?php foreach(static::$assets as $asset) : ?>
+			<?php foreach(self::$assets as $asset) : ?>
 				<div id="<?php echo $instance['id']; ?>-<?php echo $asset; ?>"
 		class="<?php echo $layout['units_class']; ?>"
 		<?php echo ($instance['units'][$asset] ? '' : ' style="display:none;"'); ?>>
@@ -396,7 +396,7 @@ abstract class SmartCountdown_Helper {
 					foreach ( $grAttrs as $k => $v ) {
 						$grConfig [$k] = ( string ) $v;
 						if ( $k == 'transition' ) {
-							$grConfig [$k] = static::translateTransitions( $grConfig [$k] );
+							$grConfig [$k] = self::translateTransitions( $grConfig [$k] );
 						}
 					}
 					
@@ -423,8 +423,8 @@ abstract class SmartCountdown_Helper {
 							$digitsConfig ['uses_margin_values'] = true;
 						}
 						
-						$elConfig ['styles'] = static::getElementStyles( $element->styles, $digitsConfig ['images_folder'] );
-						$elConfig ['tweens'] = static::getElementTweens( $element->tweens, empty( $grConfig ['unit'] ) ? '%' : $grConfig ['unit'] );
+						$elConfig ['styles'] = self::getElementStyles( $element->styles, $digitsConfig ['images_folder'] );
+						$elConfig ['tweens'] = self::getElementTweens( $element->tweens, empty( $grConfig ['unit'] ) ? '%' : $grConfig ['unit'] );
 						
 						// if a style is missing in tweens['from'] we must add it here
 						$elConfig ['tweens'] ['from'] = array_merge( $elConfig ['styles'], $elConfig ['tweens'] ['from'] );
