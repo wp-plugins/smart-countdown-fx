@@ -532,7 +532,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		wp_register_script( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js', array( 'jquery' ) );
 		wp_enqueue_script( 'easing-script' );
 		
-		wp_register_script( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js' );
+		wp_register_script( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js', array( 'jquery' ) );
 		wp_enqueue_script( 'smartcountdown-counter-script' );
 		
 		wp_register_style( 'smartcountdown-counter-style', $plugin_url . '/css/smartcountdown.css' );
