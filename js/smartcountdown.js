@@ -25,22 +25,23 @@
 			// always intact.
 			var working_copy = $.extend(true, {}, scd_counter);
 			
-			//var self = this;
-			$(window).resize(function() {
-				scds_container.responsiveAdjust();
-			});
-			
 			// call init method. Depending on the counter type - widget or
 			// embedded with a shortcode, the recently created counter will
 			// be added to scds_container after it's setup is complete
-			working_copy.init(options, this.updateInstance);
+			working_copy.init(options);
 			
 			// create the tick timer if not created yet
 			if(this.timer === false) {
 				this.timer = window.setInterval(function() {
 					scds_container.fireAllCounters();
 				}, MILIS_IN_SECOND);
+				$(window).resize(function() {
+					scds_container.responsiveAdjust();
+				});
 			}
+		},
+		remove : function(id) {
+			delete(scds_container.instances[id]);
 		},
 		updateInstance : function(id, instance) {
 			scds_container.instances[id] = instance;
@@ -99,32 +100,35 @@
 			hide_countup_counter : 0,
 			shortcode : 0,
 			redirect_url : '',
-			click_url : ''
+			click_url : '',
+			import_config : ''
 		},
 		current_values : {},
 		elements : {},
-		init : function(options, callback) {
+		init : function(options) {
 			$.extend(true, this.options, options);
 			
 			if(this.options.customize_preview == 1) {
 				// Customize preview - get deadline from temporal instance
+				// or TODO: event import plugin ?
+				
+				/* Actually we have a full-featured temporal instance here (this.options), 
+				 * so we could implement a real preview using queryNextEvent() with some
+				 * additional params (?) - we have to block widget SQL query by ID, because
+				 * it will provide main instance settings, not the temporal one... $$$
+				 */
+				
 				this.options.deadline = new Date(new Date(this.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
 				
 				this.updateCounter(this.getCounterValues(this.options.now));
 				
-				// callback to widget registration in container is
-				// required only for the first event query, switching
-				// to next event in a running widget doesn't require
-				// adding widget to container because it is already there
-				if(typeof callback === "function") {
-					callback(this.getId(), this);
-				}
+				scds_container.updateInstance(this.getId(), this);
 				
 				// init awake detect timestamp
 				this.awake_detect = new Date().getTime();
 			} else {
 				// normal view - get next event from server
-				this.queryNextEvent(callback);
+				this.queryNextEvent(true);
 			}
 		},
 		getId : function() {
@@ -146,6 +150,8 @@
 				this.diff = this.diff + elapsed * delta;
 				
 				if(this.options.mode == 'down' && this.diff <= 0) {
+					// deadline reached while suspended, change mode and send current
+					// adjusted coutup diff
 					this.deadlineReached(this.diff * -1);
 				} else {
 					// recalculate counter values
@@ -278,8 +284,12 @@
 
 			this.options.mode = 'up';
 			this.diff = new_diff;
-			new_values = this.getCounterValues(this.options.now);
+			var new_values = this.getCounterValues(this.options.now);
 			this.updateCounter(new_values);
+
+			// update units visibilty, new_diff may be far from zero if the
+			// deadline was reached while suspended, so we must counter
+			// visibility here
 			this.setCounterUnitsVisibility(new_values);
 			
 			// redirect if set so in options
@@ -530,6 +540,9 @@
 			this.initDisplay = false;
 			
 			this.current_values = new_values;
+			
+			// check for counter mode limits every tick
+			this.applyCounterLimits();
 		},
 		displayTexts : function() {
 			if(this.options.mode == 'up') {
@@ -943,30 +956,6 @@
 				}
 			}
 			
-			// show widget before/after event limits
-			var counter_container = $('#' + this.options.id);
-			if(this.options.mode == 'down') {
-				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILIS_IN_SECOND) {
-					counter_container.hide();
-				} else {
-					counter_container.show();
-				}
-			}
-			if(this.options.mode == 'up') {
-				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILIS_IN_SECOND) {
-					counter_container.hide();
-					if(this.options.shortcode != 1) {
-						// at the moment we do not support message queue for
-						// shorcode widgets but later we find a way to implement it:
-						// - reference external plugin in shortcode
-						// - reference a real widget created with "reserved for
-						// shortcode" flag and not displayed in the sidebar
-					}
-				} else {
-					counter_container.show();
-				}
-			}
-			
 			// apply calculated hide_units configuration
 			var self = this;
 			$.each(this.options.units, function(asset, display) {
@@ -979,6 +968,8 @@
 			});
 			
 			this.setLabelsPosition();
+			
+			var counter_container = $('#' + this.options.id);
 			
 			/* *** a sort of a panic action - no counter units are displayed, we have to hide the whole widget*/
 			if(hide_units.length < 7) {
@@ -1009,6 +1000,44 @@
 			} else {
 				counter_container.css('cursor', 'default');
 				counter_container.off('click');
+			}
+			
+			// add quick check for counter display mode limits
+			this.applyCounterLimits();
+		},
+		
+		applyCounterLimits : function() {
+			var counter_container = $('#' + this.options.id);
+			
+			// show widget before/after event limits
+			if(this.options.mode == 'down') {
+				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILIS_IN_SECOND) {
+					counter_container.hide();
+				} else {
+					counter_container.show();
+				}
+			}
+			if(this.options.mode == 'up') {
+				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILIS_IN_SECOND) {
+					/*
+					 * POSSIBLE ISSUE HERE: when switching to the next event, 2 AJAX requests are registered
+					 * in network console, with same response. This is not OK...
+					 * 
+					 * *** when resumed after sleep, only 1 request is done - OK.
+					 * when running - 2 requests - WHY? $$$
+					 */
+					
+					// go for the next event
+					this.queryNextEvent();
+					
+					// disable countup limit temporarly, so that no more queryNextEvent() are
+					// done. Correct countup limit will be set when the event request is done.
+					// *** we do countup limit reset after calling queryNextEvent(), so that
+					// actual limit value can be used inside queryNextEvent() method. Anyway,
+					// resetting countup limit here will guarantee that no more queries will
+					// be done while current one is in progress
+					this.options.countup_limit = -1;
+				}
 			}
 		},
 		
@@ -1157,19 +1186,27 @@
 			this.setLabelsPosition();
 		},
 		
-		queryNextEvent : function(callback) {
+		queryNextEvent : function(isNew) {
 			var self = this;
 			
 			// show spinner
 			$('#' + self.getId() + '-loading').show();
 			
+			$('#' + self.getId() + ' .scd-all-wrapper').hide();
+			
 			var queryData = {
 				action : 'scd_query_next_event',
-				smartcountdown_nonce : smartcountdownajax.nonce
+				smartcountdown_nonce : smartcountdownajax.nonce /*,
+				// possible caching bugs workaround
+				unique : new Date().getTime() */
 			};
 			if(this.options.shortcode == 1) {
-				// shortcode - include deadline date and time in query
+				// shortcode - include deadline date and time and import_plugins in query
 				queryData.deadline = this.options.deadline;
+				queryData.import_config = this.options.import_config;
+				
+				// we have to add countup limit to query data.
+				queryData.countup_limit = this.options.countup_limit;
 			} else {
 				// widget - include widget id in query, the rest of widget configuration
 				// will be read on server from wp database
@@ -1182,27 +1219,43 @@
 						// hide spinner
 						$('#' + self.getId() + '-loading').hide();
 						
+						$('#' + self.getId() + ' .scd-all-wrapper').show();
+						
 						if(response.err_code == 0) {
 							// Actually we have "self" object already initialized and
 							// setup with options (for both widget and shorcode modes)
 							
 							// we have to add actual "now" and "deadline" here, it
 							// should work for plain counters (caching workaround) and
-							// also for events import plugins (not implemented yet)
+							// also for events import plugins
 							
-							// *** For the latter case we must also copy event titles and
-							// other event-related data (links, images, etc...)
-							
-							/*
-							 * For now we are happy with "now" and "deadline" only
-							 */
 							self.options.deadline = response.options.deadline;
 							self.options.now = response.options.now;
 							
+							// we append imported event title (if any) to counter titles.
+							// later we will add more options: prepend, append, insert (placeholder) $$$
+							if(response.options.imported_title != '') {
+								if(self.options.title_before_down != '') {
+									self.options.title_before_down = self.options.title_before_down + ' ' + response.options.imported_title;
+								} else {
+									self.options.title_before_down = response.options.imported_title;
+								}
+								if(self.options.title_before_up != '') {
+									self.options.title_before_up = self.options.title_before_up + ' ' + response.options.imported_title;
+								} else {
+									self.options.title_before_up = response.options.imported_title;
+								}
+							}
+							self.options.countup_limit = response.options.countup_limit;
+							
 							if(response.options.deadline == '') {
-								// no next events. TODO: hide counter(?),
-								// display message(?), etc.
+								// no next events. TODO: display message(?), etc.
 								
+								// detach counter from container - this is a definitive
+								// shut-down for this counter instance, as there ar no future events
+								scds_container.remove(self.getId());
+								
+								$('#' + self.options.id).hide();
 								return;
 							}
 							// *** TEST ***
@@ -1214,13 +1267,16 @@
 							
 							self.updateCounter(self.getCounterValues(self.options.now));
 							
-							// callback to widget registration in container is
+							// widget registration in container is
 							// required only for the first event query, switching
 							// to next event in a running widgets doesn't require
 							// adding widget to container because it is already there
-							if(typeof callback === "function") {
-								callback(self.getId(), self);
+							if(isNew) {
+								scds_container.updateInstance(self.getId(), self);
 							}
+							
+							// We have to set counter mode limits and units display after geeting new event
+							self.setCounterUnitsVisibility(self.current_values);
 							
 							// init awake detect timestamp
 							self.awake_detect = new Date().getTime();
@@ -1231,6 +1287,8 @@
 				).fail(function(jqxhr, textStatus, error) {
 					// report error here...
 					$('#' + self.getId() + '-loading').hide();
+					
+					$('#' + self.getId() + ' .scd-all-wrapper').show();
 				});
 		}
 	}
