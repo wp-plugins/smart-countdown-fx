@@ -800,13 +800,14 @@ class SmartCountdown_Widget extends WP_Widget {
 			}
 		}
 		
-		// We allow "free text" animation profile name
+		// We allow "free text" animation profile name. Important: animation preset file
+		// name must start from a capital letter!
 		if ( !empty( $atts['fx_preset'] ) ) {
 			$atts['fx_preset'] = str_replace( ' ', '_', $atts['fx_preset'] );
 			if ( substr( $atts['fx_preset'], -4 ) != '.xml' ) {
 				$atts['fx_preset'] = $atts['fx_preset'] . '.xml';
+				$atts['fx_preset'] = ucfirst( strtolower( $atts['fx_preset'] ) );
 			}
-			$atts['fx_preset'] = ucfirst( strtolower( $atts['fx_preset'] ) );
 		}
 		
 		// *** not sure that a simple settings replication from shortcode to args
