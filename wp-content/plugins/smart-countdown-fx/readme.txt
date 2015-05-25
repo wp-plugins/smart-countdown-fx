@@ -1,13 +1,13 @@
 === Smart Countdown FX ===
 Contributors: alex3493 
-Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive
+Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 0.9
+Stable tag: 0.9.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Smart Countdown FX displays a responsive animated countdown as a widget in the sidebar or using a shortcode. Supports years and months in intervals
+Smart Countdown FX displays a responsive animated countdown. Supports years and months display and recurring events
 
 == Description ==
 Smart Countdown FX implements a lot of features, but two of them make it different from the most of existing web countdowns:
@@ -46,14 +46,11 @@ Extract the zip file and just drop the contents in the wp-content/plugins/ direc
 = How does one use the shortcode, exactly? =
 <http://smartcalc.es/wp/index.php/shortcode/> - complete list of shortcode attributes has been provided to answer this exact question.
 
-= How can I change counter animation effects? =
-Choose from available animation profiles in widget settings: "Counter animation profile:" and save, or add a shortcode attribute fx_preset="Animation_profile_selected.xml" (exact filename with extension, check installed profiles in /plugins/smart-countdown-fx/includes/animations) or fx_preset="Animation profile selected" (just the same way profile title appears in widget settings).
-
 = How can I add new animation effects? =
 <http://smartcalc.es/wp/index.php/installing-more-animations/> - detailed instructions on installing additional animation profiles.
 
 = I have installed the plugin, but Smart Countdown FX doesn't appear in available widgets list. =
-Do not forget to activate the plugin after installation.
+Do not forget to active the plugin after installation.
 
 = I have configured the widget but it is not displayed. =
 Please, check "Counter display mode" setting in the widget options. If "Auto - both countdown and countup" is not selected, the widget might have been automatically hidden because the event is still in the future or already in the past.
@@ -71,4 +68,6 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+Version 0.9.5 - support for event import plugins, bug fixes
+
 First release 0.9
