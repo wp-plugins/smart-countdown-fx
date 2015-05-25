@@ -842,9 +842,9 @@ function smartcountdown_activation_check() {
 	}
 }
 
-function smartcountdown_activation_uninstall() {
+function smartcountdown_uninstall() {
 	delete_option( 'widget_smartcountdown' );
 }
 
 register_activation_hook( __FILE__, 'smartcountdown_activation_check' );
-register_uninstall_hook( __FILE__, 'smartcountdown_activation_uninstall' );
+register_uninstall_hook( __FILE__, 'smartcountdown_uninstall' );
