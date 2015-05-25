@@ -1234,7 +1234,7 @@
 							
 							// we append imported event title (if any) to counter titles.
 							// later we will add more options: prepend, append, insert (placeholder) $$$
-							if(response.options.imported_title != '') {
+							if(typeof response.options.imported_title !== 'undefined') {
 								if(self.options.title_before_down != '') {
 									self.options.title_before_down = self.options.title_before_down + ' ' + response.options.imported_title;
 								} else {
@@ -1252,7 +1252,7 @@
 								// no next events. TODO: display message(?), etc.
 								
 								// detach counter from container - this is a definitive
-								// shut-down for this counter instance, as there ar no future events
+								// shut-down for this counter instance, as there are no future events
 								scds_container.remove(self.getId());
 								
 								$('#' + self.options.id).hide();
