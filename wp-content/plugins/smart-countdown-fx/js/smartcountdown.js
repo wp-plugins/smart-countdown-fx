@@ -981,7 +981,6 @@
 			
 			// For count up mode we implement an option to completely hide
 			// counter digits block after the event time is reached
-			// *** this logic is not checked!!!
 			if(this.options.mode == 'up') {
 				if(this.options.hide_countup_counter == 1) {
 					counter_container.find('.scd-counter').hide();
@@ -989,6 +988,10 @@
 				} else {
 					counter_container.find('.scd-counter').show();
 				}
+			} else {
+				// in "down" mode we always show counter block. The whole
+				// widget will be hidden if required in applyCounterLimits()
+				counter_container.find('.scd-counter').show();
 			}
 			
 			// if the counter is clickable, set the handler
