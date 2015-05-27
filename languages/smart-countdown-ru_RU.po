@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WordPress Blank Pot v1.0.0\n"
 "Report-Msgid-Bugs-To: Translator Name <translations@example.com>\n"
-"POT-Creation-Date: 2015-05-25 00:07+0100\n"
+"POT-Creation-Date: 2015-05-26 08:47+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Your Name <you@example.com>\n"
 "Language-Team: Your Team <translations@example.com>\n"
@@ -22,47 +22,53 @@ msgstr ""
 "_x:1,2c;_n:1,2;_n_noop:1,2;__ngettext:1,2;__ngettext_noop:1,2;_c,"
 "_nc:4c,1,2\n"
 "X-Poedit-Basepath: ../\n"
-"X-Generator: Poedit 1.8\n"
+"X-Generator: Poedit 1.7.6\n"
 "X-Poedit-SearchPath-0: .\n"
 
-#: includes/helper.php:728
+#: includes/helper.php:721
 msgid "years"
 msgstr ""
 
-#: includes/helper.php:729
+#: includes/helper.php:722
 msgid "months"
 msgstr ""
 
-#: includes/helper.php:730
+#: includes/helper.php:723
 msgid "weeks"
 msgstr ""
 
-#: includes/helper.php:731
+#: includes/helper.php:724
 msgid "days"
 msgstr ""
 
-#: includes/helper.php:732
+#: includes/helper.php:725
 msgid "hours"
 msgstr ""
 
-#: includes/helper.php:733
+#: includes/helper.php:726
 msgid "minutes"
 msgstr ""
 
-#: includes/helper.php:734
+#: includes/helper.php:727
 msgid "seconds"
 msgstr ""
 
-#: includes/helper.php:761
+#: includes/helper.php:754
 msgid "Import events from:"
 msgstr ""
 
-#: includes/helper.php:765
-msgid "None. Use event date and time from settings"
+#: includes/helper.php:758
+msgid "Disabled. Use event date and time from settings"
 msgstr ""
 
-#: includes/helper.php:775
+#: includes/helper.php:768
 msgid "Invalid configuration"
+msgstr ""
+
+#: includes/helper.php:777
+msgid ""
+"Widget event date and time will be ignored if an event import configuration "
+"is selected"
 msgstr ""
 
 #: includes/plurals.php:11 includes/plurals.php:12 includes/plurals.php:13
@@ -118,7 +124,7 @@ msgstr[2] "Лет"
 msgid "Responsive Countdown / countup widget."
 msgstr "Translation for Responsive Countdown / countup widget."
 
-#: smartcountdownfx.php:79 smartcountdownfx.php:820
+#: smartcountdownfx.php:79 smartcountdownfx.php:825
 msgid "Smart Countdown FX"
 msgstr ""
 
@@ -138,22 +144,22 @@ msgstr ""
 msgid "Auto - both countdown and count up"
 msgstr ""
 
-#: smartcountdownfx.php:351
+#: smartcountdownfx.php:352
 msgid "Only before event (countdown)"
 msgstr ""
 
-#: smartcountdownfx.php:352
+#: smartcountdownfx.php:353
 msgid "Countdown - no limit"
 msgstr ""
 
-#: smartcountdownfx.php:353 smartcountdownfx.php:354 smartcountdownfx.php:355
-#: smartcountdownfx.php:356 smartcountdownfx.php:357
+#: smartcountdownfx.php:354 smartcountdownfx.php:355 smartcountdownfx.php:356
+#: smartcountdownfx.php:357 smartcountdownfx.php:358
 #, php-format
 msgid "Show counter %s before event"
 msgstr ""
 
-#: smartcountdownfx.php:353 smartcountdownfx.php:354 smartcountdownfx.php:355
-#: smartcountdownfx.php:362 smartcountdownfx.php:363
+#: smartcountdownfx.php:354 smartcountdownfx.php:355 smartcountdownfx.php:356
+#: smartcountdownfx.php:363 smartcountdownfx.php:364
 #, php-format
 msgid "%d hour"
 msgid_plural "%d hours"
@@ -161,7 +167,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: smartcountdownfx.php:356
+#: smartcountdownfx.php:357
 #, php-format
 msgid "%d day"
 msgid_plural "%d days"
@@ -169,7 +175,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: smartcountdownfx.php:357 smartcountdownfx.php:364
+#: smartcountdownfx.php:358 smartcountdownfx.php:365
 #, php-format
 msgid "%d week"
 msgid_plural "%d weeks"
@@ -177,21 +183,21 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: smartcountdownfx.php:359
+#: smartcountdownfx.php:360
 msgid "Only after event (count up)"
 msgstr ""
 
-#: smartcountdownfx.php:360
+#: smartcountdownfx.php:361
 msgid "Count up - no limit"
 msgstr ""
 
-#: smartcountdownfx.php:361 smartcountdownfx.php:362 smartcountdownfx.php:363
-#: smartcountdownfx.php:364
+#: smartcountdownfx.php:362 smartcountdownfx.php:363 smartcountdownfx.php:364
+#: smartcountdownfx.php:365
 #, php-format
 msgid "Hide counter %s after event"
 msgstr ""
 
-#: smartcountdownfx.php:361
+#: smartcountdownfx.php:362
 #, php-format
 msgid "%d minute"
 msgid_plural "%d minutes"
@@ -199,88 +205,88 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: smartcountdownfx.php:371
+#: smartcountdownfx.php:372
 msgid "Title before counter for countdown mode"
 msgstr ""
 
-#: smartcountdownfx.php:377
+#: smartcountdownfx.php:378
 msgid "Title after counter for countdown mode"
 msgstr ""
 
-#: smartcountdownfx.php:383
+#: smartcountdownfx.php:384
 msgid "Title before counter for count up mode"
 msgstr ""
 
-#: smartcountdownfx.php:389
+#: smartcountdownfx.php:390
 msgid "Title after counter for count up mode"
 msgstr ""
 
-#: smartcountdownfx.php:395
+#: smartcountdownfx.php:396
 msgid "Counter animation profile:"
 msgstr ""
 
-#: smartcountdownfx.php:405
+#: smartcountdownfx.php:406
 msgid "Widget layout preset:"
 msgstr ""
 
-#: smartcountdownfx.php:419
+#: smartcountdownfx.php:420
 msgid "Use titles for count up mode as \"Time has arrived\" message"
 msgstr ""
 
-#: smartcountdownfx.php:421
+#: smartcountdownfx.php:422
 msgid "Display counter units:"
 msgstr ""
 
-#: smartcountdownfx.php:423
+#: smartcountdownfx.php:424
 msgid "Text before counter font size:"
 msgstr ""
 
-#: smartcountdownfx.php:434
+#: smartcountdownfx.php:435
 msgid "Text after counter font size:"
 msgstr ""
 
-#: smartcountdownfx.php:445
+#: smartcountdownfx.php:446
 msgid "Counter digits size:"
 msgstr ""
 
-#: smartcountdownfx.php:456
+#: smartcountdownfx.php:457
 msgid "Counter labels size:"
 msgstr ""
 
-#: smartcountdownfx.php:467
+#: smartcountdownfx.php:468
 msgid ""
 "Goto URL on widget click (leave this field empty to disable this feature):"
 msgstr ""
 
-#: smartcountdownfx.php:474
+#: smartcountdownfx.php:475
 msgid ""
 "Redirect to URL on contdown zero (leave this field empty to disable "
 "automatic redirection):"
 msgstr ""
 
-#: smartcountdownfx.php:481
+#: smartcountdownfx.php:482
 msgid "Widget style - CSS rules separated and ended with a semicolon:"
 msgstr ""
 
-#: smartcountdownfx.php:488
+#: smartcountdownfx.php:489
 msgid ""
 "Text before counter style - CSS rules separated and ended with a semicolon:"
 msgstr ""
 
-#: smartcountdownfx.php:495
+#: smartcountdownfx.php:496
 msgid ""
 "Text after counter style - CSS rules separated and ended with a semicolon:"
 msgstr ""
 
-#: smartcountdownfx.php:502
+#: smartcountdownfx.php:503
 msgid "Counter digits style - CSS rules separated and ended with a semicolon:"
 msgstr ""
 
-#: smartcountdownfx.php:509
+#: smartcountdownfx.php:510
 msgid "Counter labels style - CSS rules separated and ended with a semicolon:"
 msgstr ""
 
-#: smartcountdownfx.php:836
+#: smartcountdownfx.php:841
 #, php-format
 msgid "Smart Countdown FX requires WordPress %s or higher."
 msgstr ""

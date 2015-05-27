@@ -751,11 +751,11 @@ abstract class SmartCountdown_Helper {
 		
 		$html = array();
 		$html[] = '<p>';
-		$html[] = '<label for="' . $id . '">' . __('Import events from:', 'smart-countdown') . '</label>';
+		$html[] = '<label for="' . $id . '">' . __( 'Import events from:', 'smart-countdown' ) . '</label>';
 		$html[] = '<select class="widefat" id="' . $id . '" name="' . $name . '">';
 		
 		$html[] = '<option value=""' . ( '' == $selected ? ' selected' : '' ) . '>';
-		$html[] = esc_html__( 'None. Use event date and time from settings', 'smart-countdown' );
+		$html[] = esc_html__( 'Disabled. Use event date and time from settings', 'smart-countdown' );
 		$html[] = '</option>';
 		
 		foreach( $configs as $provider => $presets ) {
@@ -773,6 +773,10 @@ abstract class SmartCountdown_Helper {
 		
 		$html[] = '</select>';
 		$html[] = '</p>';
+		$html[] = '<p class="help">';
+		$html[] = __( 'Widget event date and time will be ignored if an event import configuration is selected', 'smart-countdown' );
+		$html[] = '</p>';
+				
 		return implode( "\n", $html );
 	}
 }

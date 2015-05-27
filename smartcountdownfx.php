@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 0.9.5
+Version: 0.9.6
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -675,6 +675,9 @@ class SmartCountdown_Widget extends WP_Widget {
 						} else {
 							$options = SmartCountdown_Helper::processImportedEvents( $options, $now_ts );
 						}
+					} else {
+						// import plugins were desactivated or uninstalled
+						$options['deadline'] = '';
 					}
 					
 					$response['options'] = $options;
@@ -792,9 +795,9 @@ class SmartCountdown_Widget extends WP_Widget {
 			// fully-qualified limits. Must be written in format: mode="countdown:NNN,countup:MMM", where
 			// NNN = seconds to show countdown before event, MMM = seconds elapsed after event when count up
 			// is hidden. No spaces are allowed. If the format is not correct, default "auto" mode will
-			// take effect
+			// take effect. It is possible to use "-1" for no limit
 			$matches = array ();
-			if ( preg_match( '/countdown:(\d+),countup:(\d+)/', $atts['mode'], $matches ) ) {
+			if ( preg_match( '/countdown:(-?\d+),countup:(-?\d+)/', $atts['mode'], $matches ) ) {
 				$atts['countdown_limit'] = $matches[1];
 				$atts['countup_limit'] = $matches[2];
 			}
@@ -841,10 +844,9 @@ function smartcountdown_activation_check() {
 		exit();
 	}
 }
-
 function smartcountdown_uninstall() {
 	delete_option( 'widget_smartcountdown' );
+	//delete_site_option( 'widget_smartcountdown' );
 }
-
 register_activation_hook( __FILE__, 'smartcountdown_activation_check' );
 register_uninstall_hook( __FILE__, 'smartcountdown_uninstall' );
