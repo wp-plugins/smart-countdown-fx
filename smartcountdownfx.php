@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 0.9.6
+Version: 0.9.7
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -62,6 +62,7 @@ class SmartCountdown_Widget extends WP_Widget {
 			'title_after_style' => '',
 			'digits_style' => '',
 			'labels_style' => '',
+			'base_font_size' => SCD_BASE_FONT_SIZE,
 			
 			'widget_style' => '',
 			'redirect_url' => '',
@@ -704,16 +705,22 @@ class SmartCountdown_Widget extends WP_Widget {
 				'title_after_up' => '',
 				'fx_preset' => 'Sliding_text_fade.xml',
 				'layout_preset' => 'shortcode_compact.xml',
-				'digits_size' => 36,
+				'digits_size' => 40,
 				'labels_size' => 10,
-				'title_before_size' => 24,
-				'title_after_size' => 18,
+				'title_before_size' => 20,
+				'title_after_size' => 16,
 				'units' => '*',
 				'mode' => 'auto',
 				'hide_countup_counter' => '0',
 				'redirect_url' => '',
 				'click_url' => '',
-				'import_config' => '' 
+				'title_before_style' => '',
+				'title_after_style' => '',
+				'import_config' => '',
+				'digits_style' => '',
+				'labels_style' => '',
+			
+				'widget_style' => ''
 		), $atts, 'smartcountdown' );
 		
 		/*
@@ -846,7 +853,7 @@ function smartcountdown_activation_check() {
 }
 function smartcountdown_uninstall() {
 	delete_option( 'widget_smartcountdown' );
-	//delete_site_option( 'widget_smartcountdown' );
+	delete_site_option( 'widget_smartcountdown' );
 }
 register_activation_hook( __FILE__, 'smartcountdown_activation_check' );
 register_uninstall_hook( __FILE__, 'smartcountdown_uninstall' );
