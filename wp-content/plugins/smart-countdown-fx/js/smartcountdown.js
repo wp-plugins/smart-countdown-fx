@@ -101,7 +101,8 @@
 			shortcode : 0,
 			redirect_url : '',
 			click_url : '',
-			import_config : ''
+			import_config : '',
+			base_font_size : 12
 		},
 		current_values : {},
 		elements : {},
@@ -997,6 +998,7 @@
 			// if the counter is clickable, set the handler
 			if(this.options.click_url != '') {
 				counter_container.css('cursor', 'pointer');
+				counter_container.off('click');
 				counter_container.on('click', function() {
 					window.location = self.options.click_url;
 				});
@@ -1046,7 +1048,7 @@
 		
 		setRowVerticalAlign : function() {
 			// align digits - for counter column layout only
-			var digits = $('.scd-unit-vert .scd-digits-row:visible');
+			var digits = $('#' + this.options.id + ' .scd-unit-vert .scd-digits-row:visible');
 			if(digits.length > 0) {
 				var maxWidth = 0, width;
 				digits.css('min-width', '');
@@ -1067,7 +1069,7 @@
 			// ALTERNATIVES: get maximum labels width on init, set min-width for lables in styles -
 			// Also important for horizontal counter layout! *** for now we only check vertical
 			// layout
-			var labels = $('.scd-unit-vert .scd-label-row:visible');
+			var labels = $('#' + this.options.id + ' .scd-unit-vert .scd-label-row:visible');
 			if(labels.length > 0) {
 				var maxWidth = 0, width;
 				labels.css('min-width', '');
@@ -1084,7 +1086,7 @@
 		// update labels vertical position for left or right labels placement
 		setLabelsPosition : function() {
 			// adjust labels position if neeed (if vertical label position is set)
-			var labels = $('.scd-label-row:visible');
+			var labels = $('#' + this.options.id + ' .scd-label-row:visible');
 			if(labels.length > 0) {
 				var digitsDiv, digitsHeight, labelHeight, top, self = this;
 				//labels.css('height', '');

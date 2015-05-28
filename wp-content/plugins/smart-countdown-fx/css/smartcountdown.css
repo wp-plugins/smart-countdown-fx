@@ -1,5 +1,9 @@
 .widget_smartcountdown {
 	font-size: 12px; /* Important: has to be equal to SCD_BASE_FONT_SIZE */
+	
+}
+.scd-all-wrapper {
+	width: 100%;
 }
 .scd-title-col {
 	clear: left;
@@ -21,8 +25,9 @@
 	margin: 0.5em 0;
 }
 .scd-unit-horz {
-	float: left;
+	/*float: left;*/
 	margin: 0 0.5em;
+	display: inline-block;
 }
 .scd-digits-col {
 	clear: left;

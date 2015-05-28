@@ -1,6 +1,6 @@
 <?php
 /*
-Version: 0.9.5
+Version: 0.9.7
 Author: Alex Polonski
 Author URI: http://smartcalc.es
 License: GPL2
@@ -81,6 +81,11 @@ abstract class SmartCountdown_Helper {
 			if ( file_exists( $file_name ) ) {
 				$xml = file_get_contents( $file_name );
 			}
+			if ( empty( $xml ) ) {
+				// usually means a missing layout preset file. Just leave our instance
+				// with default values
+				return $instance;
+			}
 			
 			// now XML document should be valid
 			libxml_use_internal_errors( true );
@@ -89,9 +94,6 @@ abstract class SmartCountdown_Helper {
 			
 			foreach ( libxml_get_errors() as $error ) {
 				// log errors here...
-			}
-			if ( empty( $xml ) ) {
-				return $instance;
 			}
 			
 			// counter units padding settings
