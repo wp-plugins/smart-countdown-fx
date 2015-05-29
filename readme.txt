@@ -72,8 +72,28 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 
 == Changelog ==
 
-Varsion 0.9.7 - added custom styles shortcode attributes
+= 0.9.7 = 
 
-Version 0.9.5 - support for Event import plugins, bug fixes
+* added custom styles shortcode attributes
 
-First release 0.9
+= 0.9.6 =
+
+* bug fixes
+
+= 0.9.5 =
+
+* support for Event import plugins
+* bug fixes
+
+= 0.9 =
+
+* First release
+
+== Upgrade Notice ==
+
+Please upgrade to at least 0.9.5 in order to be able to use event import plugins (upgrade to the latest version is always recommended)
+
+== Known issues ==
+
+= Setting timezone to some "UTC+/-" values in general site settings causes an error in time zone detection and the widget is not displayed =
+Workaround: please select one of the time zones from geographical locations list.
