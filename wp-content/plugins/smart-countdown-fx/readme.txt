@@ -32,7 +32,7 @@ For complete list of features [see this page][4]
 
 **Coming soon**
 
-* Basic plugin stores the event date and time in widget settings or as a shortcode attribute, so only one event date can be configured for each Smart Countdown FX widget instance. A bunch of "event import" plugins is in developement and will be available soon. These plugins will support popular event management plugins and services (like Google Calendar) and will pull events automatically into Smart Countdown FX events queue, so that countdown to the next event will be activated automatically after the current one is over.
+* More event import plugins for popular event management plugins and services (like Google Calendar).
 
 * More animation profiles.
 
