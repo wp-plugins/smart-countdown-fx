@@ -62,11 +62,11 @@ Please, check "Counter display mode" setting in the widget options. If "Auto - b
 Check the spelling of "fx_preset" attribute (if you includeded it in attributes list). Try the standard fx_preset="Sliding_text_fade.xml". Also check "mode" attribute. Set in to "auto".
 
 == Screenshots ==
-1. Widget default settings (part 1/2)
+1. Widget settings
 
-2. Widget default settings (part 2/2)
+2. Widget in sidebar (custom animation)
 
-3. Countdown in front end
+3. HTML Countdown in front end
 
 4. "Time has arrived!" message
 
