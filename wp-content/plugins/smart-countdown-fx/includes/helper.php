@@ -211,17 +211,22 @@ abstract class SmartCountdown_Helper {
 	 */
 	public static function updateDeadlineUTC( $options ) {
 		// For now we use current WP system time (aware of time zone in settings)
+		$deadline = new DateTime( $options['deadline']/*, new DateTimeZone('UTC')*/);
+		
 		$tz_string = get_option( 'timezone_string', 'UTC' );
 		if ( empty( $tz_string ) ) {
-			// direct offset if TZ
-			$offset = get_option( 'gmt_offset' );
-			$tz_string = 'GMT' . ( $offset >= 0 ? '+' : '' ) . $offset;
+			// direct offset if not a TZ
+			$offset = get_option( 'gmt_offset' ) * 3600;
+		} else {
+			try {
+				$tz = new DateTimeZone( $tz_string );
+				$offset = $tz->getOffset( $deadline );
+			} catch(Exception $e) {
+				$offset = 0; // invalid timezone string
+			}
 		}
 		
 		// convert deadline to UTC
-		$deadline = new DateTime( $options['deadline']/*, new DateTimeZone('UTC')*/);
-		$tz = new DateTimeZone( $tz_string );
-		$offset = $tz->getOffset( $deadline );
 		$deadline->modify( ( $offset < 0 ? '+' : '-' ) . abs( $offset ) . ' second' );
 		
 		$options['deadline'] = $deadline->format( 'c' );
