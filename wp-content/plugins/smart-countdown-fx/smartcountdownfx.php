@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 0.9.7
+Version: 0.9.8
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -626,6 +626,9 @@ class SmartCountdown_Widget extends WP_Widget {
 							} else {
 								$instance = SmartCountdown_Helper::processImportedEvents( $instance, $now_ts );
 							}
+						} else {
+							// import plugins were desactivated or uninstalled
+							$instance['deadline'] = '';
 						}
 					} else {
 						// no import plugins enabled, get the deadline from widget settings

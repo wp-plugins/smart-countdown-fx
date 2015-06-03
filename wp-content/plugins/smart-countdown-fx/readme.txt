@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 0.9.7
+Stable tag: 0.9.8
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,8 @@ Smart Countdown FX implements a lot of features, but two of them make it differ
 
 * counter digits changes are animated and these animations are not hard-coded – site administrator can easily switch between available <a href="http://smartcalc.es/wp/index.php/category/animation-profiles/">animation profiles</a> included with the plugin or added later.
   
+* event [import plugins][5] support, no need to manually edit widget settings or shortcode for recurring events. 
+
 **Other features**
 
 Smart Countdown FX can show both countdown and count up counters, and it will switch to the “count up” mode automatically when the event time arrives. Event description can be configured individually for countdown and count up modes and can containt HTML markup allowed for a post.
@@ -26,13 +28,15 @@ Smart Countdown FX widget is responsive. Open [Layouts Demo][3] page on differe
 
 More than one countdown can be displayed on the same page, each instance with its individual settings and configuration.
 
-Events import plugins are supported. [Easy Recurring Events][5] is available for download
+Events import plugins are supported. [View plugins][5] available for download
+
+[Project home page][6]
 
 For complete list of features [see this page][4]
 
 **Coming soon**
 
-* More event import plugins for popular event management plugins and services (like Google Calendar).
+* More event import plugins for popular event management plugins and services.
 
 * More animation profiles.
 
@@ -41,6 +45,7 @@ For complete list of features [see this page][4]
  [3]: http://smartcalc.es/wp/index.php/layouts-demo/
  [4]: http://smartcalc.es/wp/index.php/features/
  [5]: http://smartcalc.es/wp/index.php/category/event-import-plugins/
+ [6]: http://smartcalc.es/wp/
 
 == Installation ==
 Extract the zip file and just drop the contents in the wp-content/plugins/ directory of your WordPress installation and then activate the Plugin from Plugins page.
@@ -72,6 +77,11 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 
 == Changelog ==
 
+= 0.9.8 = 
+
+* event import plugins support - bug fixes
+* added "%imported%" placeholder support in event titles
+
 = 0.9.7 = 
 
 * added custom styles shortcode attributes
@@ -92,8 +102,3 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 == Upgrade Notice ==
 
 Please upgrade to at least 0.9.5 in order to be able to use event import plugins (upgrade to the latest version is always recommended)
-
-== Known issues ==
-
-= Setting timezone to some "UTC+/-" values in general site settings causes an error in time zone detection and the widget is not displayed =
-Workaround: please select one of the time zones from geographical locations list.

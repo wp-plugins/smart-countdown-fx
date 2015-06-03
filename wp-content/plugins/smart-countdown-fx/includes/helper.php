@@ -271,7 +271,7 @@ abstract class SmartCountdown_Helper {
 		// by their end time
 		$timeline = array();
 		
-		foreach ($events as &$event ) {		
+		foreach( $events as &$event ) {		
 			$deadline = new DateTime( $event['deadline'] );
 			$event_start_ts = $deadline->format('U');
 			
