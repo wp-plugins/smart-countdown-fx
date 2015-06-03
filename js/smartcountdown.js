@@ -109,6 +109,17 @@
 		init : function(options) {
 			$.extend(true, this.options, options);
 			
+			// backup original event titles - we'll need them later
+			// for appending imported event titles
+			this.options.original_title_before_down = this.options.title_before_down;
+			this.options.original_title_before_up = this.options.title_before_up;
+			
+			/* reserved - "titles after" currently not needed, imported event titles are
+			 * appended to "titles before" only
+			this.options.original_title_after_down = this.options.title_after_down;
+			this.options.original_title_after_up = this.options.title_after_up;
+			*/
+			
 			if(this.options.customize_preview == 1) {
 				// Customize preview - get deadline from temporal instance
 				// or TODO: event import plugin ?
@@ -1237,19 +1248,38 @@
 							self.options.deadline = response.options.deadline;
 							self.options.now = response.options.now;
 							
-							// we append imported event title (if any) to counter titles.
-							// later we will add more options: prepend, append, insert (placeholder) $$$
+							// we append imported event title (if any) to counter titles
+							// or insert imported title if a placeholder found in original
 							if(typeof response.options.imported_title !== 'undefined') {
-								if(self.options.title_before_down != '') {
-									self.options.title_before_down = self.options.title_before_down + ' ' + response.options.imported_title;
+								// we have imported title
+								if(self.options.original_title_before_down != '') {
+									if(self.options.original_title_before_down.indexOf('%imported%') != -1) {
+										// replace placeholder with imported title
+										self.options.title_before_down = self.options.original_title_before_down.replace('%imported%', response.options.imported_title);
+									} else {
+										// no placeholder - append imported title
+										self.options.title_before_down = self.options.original_title_before_down + ' ' + response.options.imported_title;
+									}
 								} else {
+									// generic title empty - use imported title as is
 									self.options.title_before_down = response.options.imported_title;
 								}
-								if(self.options.title_before_up != '') {
-									self.options.title_before_up = self.options.title_before_up + ' ' + response.options.imported_title;
+								if(self.options.original_title_before_up != '') {
+									if(self.options.original_title_before_up.indexOf('%imported%') != -1) {
+										// replace placeholder with imported title
+										self.options.title_before_up = self.options.original_title_before_up.replace('%imported%', response.options.imported_title);
+									} else {
+										// no placeholder - append imported title
+										self.options.title_before_up = self.options.original_title_before_up + ' ' + response.options.imported_title;
+									}
 								} else {
+									// generic title empty - use imported title as is
 									self.options.title_before_up = response.options.imported_title;
 								}
+							} else {
+								// just in case - remove "imported" placeholders
+								self.options.title_before_down = self.options.original_title_before_down.replace('%imported%', '');
+								self.options.title_before_up = self.options.original_title_before_up.replace('%imported%', '');
 							}
 							self.options.countup_limit = response.options.countup_limit;
 							
