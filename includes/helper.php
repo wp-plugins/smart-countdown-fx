@@ -1,6 +1,6 @@
 <?php
 /*
-Version: 0.9.7
+Version: 1.0.0
 Author: Alex Polonski
 Author URI: http://smartcalc.es
 License: GPL2
@@ -426,9 +426,21 @@ abstract class SmartCountdown_Helper {
 	}
 	public static function getAnimations( $instance ) {
 		$file_name = dirname( __FILE__ ) . '/animations/' . $instance['fx_preset'];
-		if ( file_exists( $file_name ) ) {
+		
+		if( !file_exists( $file_name ) ) {
+			// Additional profiles can be stored in alternative folder, if requested file is not
+			// present we make another attempt
+			$is_alt_animation_dir = true;
+			$file_name = dirname( __FILE__ ) . '/../../smart-countdown-animations/' . $instance['fx_preset'];
+		}
+		if( !file_exists( $file_name ) ) {
+			// fallback to default animation profile (e.g. for misprints in shortcode)
+			$file_name = dirname( __FILE__ ) . '/animations/Sliding_text_fade.xml';
+		}
+		if( file_exists( $file_name ) ) {
 			$xml = file_get_contents( $file_name );
 		} else {
+			// panic
 			return false;
 		}
 		
@@ -449,7 +461,11 @@ abstract class SmartCountdown_Helper {
 		$digitsConfig['name'] = $xml['name'] ? ( string ) $xml['name'] : 'Custom';
 		$digitsConfig['description'] = $xml['description'] ? ( string ) $xml['description'] : '';
 		
-		$digitsConfig['images_folder'] = plugins_url() . '/' . dirname( plugin_basename( __FILE__ ) ) . '/animations/' . ( $xml['images_folder'] ? ( string ) $xml['images_folder'] : '' );
+		if( empty( $is_alt_animation_dir ) ) {
+			$digitsConfig['images_folder'] = plugins_url() . '/' . dirname( plugin_basename( __FILE__ ) ) . '/animations/' . ( $xml['images_folder'] ? ( string ) $xml['images_folder'] : '' );
+		} else {
+			$digitsConfig['images_folder'] = plugins_url() . '/smart-countdown-animations/' . ( $xml['images_folder'] ? ( string ) $xml['images_folder'] : '' );
+		}
 		$digitsConfig['uses_margin_values'] = false;
 		
 		// *** TEST ONLY - for debugging to see previous values for all digits on init
@@ -679,22 +695,30 @@ abstract class SmartCountdown_Helper {
 		} elseif ( $config['type'] == 'filelist' ) {
 			$html[] = '<select class="widefat" id="' . $id . '" name="' . $name . '">';
 			
-			$dir = $config['folder'];
-			$files = scandir( $dir );
-			$filter_ext = empty( $config['extension'] ) ? '' : $config['extension'];
+			// for filelist we support an array of folders, so that we can merge all
+			// files found into dropdown control
+			$dirs = ( array ) $config['folder'];
 			
-			foreach ( $files as $filename ) {
-				$parts = explode( '.', $filename );
-				$ext = array_pop( $parts );
-				$name = str_replace( array (
-						'.',
-						'_' 
-				), ' ', implode( '.', $parts ) );
-				
-				if ( $filter_ext && $ext != $filter_ext ) {
-					continue;
+			foreach( $dirs as $dir ) {
+				if( !file_exists( $dir ) ) {
+					continue;	
 				}
-				$html[] = '<option value="' . $filename . '"' . ( $selected == $filename ? ' selected' : '' ) . '>' . ucwords( esc_html( $name ) ) . '</option>';
+				$files = scandir( $dir );
+				$filter_ext = empty( $config['extension'] ) ? '' : $config['extension'];
+				
+				foreach ( $files as $filename ) {
+					$parts = explode( '.', $filename );
+					$ext = array_pop( $parts );
+					$name = str_replace( array (
+							'.',
+							'_' 
+					), ' ', implode( '.', $parts ) );
+					
+					if ( $filter_ext && $ext != $filter_ext ) {
+						continue;
+					}
+					$html[] = '<option value="' . $filename . '"' . ( $selected == $filename ? ' selected' : '' ) . '>' . ucwords( esc_html( $name ) ) . '</option>';
+				}
 			}
 		} elseif ( $config['type'] == 'optgroups' ) {
 			// plain lists and option groups supported
