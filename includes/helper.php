@@ -277,7 +277,7 @@ abstract class SmartCountdown_Helper {
 			
 			// calculate event end time
 			if( $instance['countup_limit'] > 0 ) {
-				// explicit up limit, doesn't depend on duration
+				// explicit up limit, don't depend on duration
 				$event_end_ts = $event_start_ts + $instance['countup_limit'];
 			} elseif( $instance['countup_limit'] == -1 ) {
 				// automatic up limit, use event duration as is

@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 0.9.8
+Version: 0.9.9
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -597,7 +597,7 @@ class SmartCountdown_Widget extends WP_Widget {
 			$response['err_code'] = 100;
 			$response['err_msg'] = 'Invalid Token!';
 		} else {
-			// get current UNIX timestamp in milis to include it to response
+			// get current UNIX timestamp to include it to response
 			$now_ts = current_time( 'timestamp', true );
 			
 			if ( !empty( $_REQUEST['id'] ) ) {

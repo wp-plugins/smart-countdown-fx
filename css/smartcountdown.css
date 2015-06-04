@@ -1,9 +1,15 @@
 .widget_smartcountdown {
 	font-size: 12px; /* Important: has to be equal to SCD_BASE_FONT_SIZE */
-	
+}
+.widget_smartcountdown .textwidget {
+	font-size: inherit;
 }
 .scd-all-wrapper {
 	width: 100%;
+	font-size: inherit;
+}
+.scd-title-col, .scd-title-row {
+	line-height: 1em;
 }
 .scd-title-col {
 	clear: left;
@@ -58,6 +64,9 @@
 .scd-digit img {
 	margin: 0!important;
 	padding: 0!important;
+}
+.scd-digit div {
+	font-size: inherit;
 }
 
 
