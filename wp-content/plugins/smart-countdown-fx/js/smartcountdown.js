@@ -114,6 +114,11 @@
 			this.options.original_title_before_down = this.options.title_before_down;
 			this.options.original_title_before_up = this.options.title_before_up;
 			
+			// backup countup limit from shortcode or widget settings. We will need this
+			// value when requesting next event. this.options.countup_limit will change
+			// during counter life to indicate the next query interval
+			this.options.original_countup_limit = this.options.countup_limit;
+			
 			/* reserved - "titles after" currently not needed, imported event titles are
 			 * appended to "titles before" only
 			this.options.original_title_after_down = this.options.title_after_down;
@@ -1221,8 +1226,8 @@
 				queryData.deadline = this.options.deadline;
 				queryData.import_config = this.options.import_config;
 				
-				// we have to add countup limit to query data.
-				queryData.countup_limit = this.options.countup_limit;
+				// we have to add countup limit from original settings to query data.
+				queryData.countup_limit = this.options.original_countup_limit;
 			} else {
 				// widget - include widget id in query, the rest of widget configuration
 				// will be read on server from wp database
