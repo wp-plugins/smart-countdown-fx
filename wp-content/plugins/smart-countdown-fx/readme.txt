@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -77,9 +77,13 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 
 == Changelog ==
 
+= 1.0.1 = 
+
+* fixed bug - switching tabs in Firefox and Chrome caused issues in some complex animations. Currently published animation profiles were not affected but it is recommended to update anyway.
+
 = 1.0.0 = 
 
-* fixed automatic update issue. Now additional animations profiles can be installed to a dedicater folder ouside the plugins folder and are not deleted on automatic plugin update.
+* fixed automatic update issue. Now additional animation profiles can be installed in a dedicated folder outside the plugin's directory and are not deleted on automatic plugin update.
 
 = 0.9.9 = 
 

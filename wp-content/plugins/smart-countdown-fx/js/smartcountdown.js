@@ -179,6 +179,8 @@
 					// cycles (so that entire queue is checked)
 					this.softInitCounter(true);
 				}
+				// simplify animations on resume
+				this.initDisplay = true;
 				return;
 			}
 			
@@ -832,7 +834,8 @@
 				// We are sure that at least 1 element qualified for animation was found in the group
 				group_processed = true;
 				
-				if(el.tweens.to.length === 0) { // objects have length undefined, so only empty array will pass this condition
+				if(el.tweens.to.length === 0) { // objects have length undefined, so only empty array
+					// will pass this condition
 					// if tweens are empty we have to simulate animation duration. Of course,
 					// it is possible to use a "trivial" tween hack, e.g. <width>100,100</width>,
 					// but using native setTimeout() shoud be better.
@@ -849,17 +852,29 @@
 					} else {
 						cur_element_index++;
 						if(cur_element_index >= elements_count) {
-							self.animateGroup(values, group_index + 1, prefix, groups);
+							this.animateGroup(values, group_index + 1, prefix, groups);
 						}
 					}
 				} else {
-					// we have tweens defined. Proceed with animation
-					$el.animate(el.tweens.to, duration, transition, function() {
+					// we have tweens defined. Proceed with animation. Do not animate
+					// elements that are currently being animated - prevent
+					// animations mess up on tab switch back and resume in some
+					// browsers
+					if($el.is(':animated')) {
+						// decrement elements-left count
 						cur_element_index++;
 						if(cur_element_index >= elements_count) {
-							self.animateGroup(values, group_index + 1, prefix, groups);
+							this.animateGroup(values, group_index + 1, prefix, groups);
 						}
-					});
+					} else {
+						// actually start animation
+						$el.animate(el.tweens.to, duration, transition, function() {
+							cur_element_index++;
+							if(cur_element_index >= elements_count) {
+								self.animateGroup(values, group_index + 1, prefix, groups);
+							}
+						});
+					}
 				}
 			}
 			
