@@ -211,7 +211,7 @@ abstract class SmartCountdown_Helper {
 	 */
 	public static function updateDeadlineUTC( $options ) {
 		// For now we use current WP system time (aware of time zone in settings)
-		$deadline = new DateTime( $options['deadline']/*, new DateTimeZone('UTC')*/);
+		$deadline = new DateTime( !empty( $options['deadline'] ) ? $options['deadline'] : null /*, new DateTimeZone('UTC')*/);
 		
 		$tz_string = get_option( 'timezone_string', 'UTC' );
 		if ( empty( $tz_string ) ) {
