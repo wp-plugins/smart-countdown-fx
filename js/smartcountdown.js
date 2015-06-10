@@ -10,10 +10,10 @@
 	const SECONDS_IN_MINUTE = 60;
 	const MINUTES_IN_DAY = SECONDS_IN_DAY / 60;
 	const MINUTES_IN_HOUR = 60;
-	
 	const HOURS_IN_DAY = 24;
-	
 	const MONTHS_IN_YEAR = 12;
+	
+	const SUSPEND_THRESHHOLD = 500;
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -49,7 +49,7 @@
 		},
 		fireAllCounters : function() {
 			$.each(this.instances, function() {
-				this.tick();
+				this.tick(true);
 			});
 		},
 		responsiveAdjust : function() {
@@ -106,6 +106,10 @@
 		},
 		current_values : {},
 		elements : {},
+		awake_detect : 0,
+		acc_correction : 0, // reserved
+		init_done : false,
+		
 		init : function(options) {
 			$.extend(true, this.options, options);
 			
@@ -142,7 +146,7 @@
 				scds_container.updateInstance(this.getId(), this);
 				
 				// init awake detect timestamp
-				this.awake_detect = new Date().getTime();
+				this.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
 			} else {
 				// normal view - get next event from server
 				this.queryNextEvent(true);
@@ -151,20 +155,47 @@
 		getId : function() {
 			return this.options.id || 0;
 		},
-		tick : function() {
+		tick : function(from_timer) {
 			var delta = this.options.mode == 'up' ? 1 : -1;
 			
 			// Check if browser was suspended or js was paused
+			
+			// get time elapsed since last tick
 			var current = new Date().getTime();
 			var elapsed = current - this.awake_detect;
 			// Immediately update awake_detect value
 			this.awake_detect = current;
 			
-			if(elapsed > 1050) {
+			// depending on init stage we have to handle accumulated corection
+			if(this.init_done) {
+				// normal flow, tick() was triggered from fireAllCounters() timer
+				// normally elapsed in a running counter will be very close to MILIS_IN_SECOND
+				// acc_correction will hold the deviance from this MILIS_IN_SECOND value.
+				// In case of suspend/resume event acc_correction can grow much bigger and 
+				// it will be used when counter value is adjusted.
+				// After adjustment we will reset acc_correction to 0
+				this.acc_correction = this.acc_correction + (elapsed - MILIS_IN_SECOND);
+			} else {
+				// very early tick in counter life cycle
+				if(from_timer) {
+					// this is a tick from timer, we have to set init_done flag, so that on
+					// next tick we can begin working with acc_correction
+					this.init_done = true;
+				}
+				// on early stage we get a tick right after the init tick - it is the first
+				// one triggered by fireAllCounters() timer. Usually is comes in approx. 250ms
+				// after the init tick but just in case we catch an abnormal delay here
+				this.acc_correction = elapsed > MILIS_IN_SECOND ? elapsed : 0;
+			}
+			
+			// At this point "acc_correction" should be around 0 for normal run
+			
+			if(this.acc_correction > SUSPEND_THRESHHOLD) {
 				// suspend-resume detected. Adjust timestamps by the time
 				// actually elapsed while suspended
-				this.options.now += elapsed;
-				this.diff = this.diff + elapsed * delta;
+				this.options.now += (this.acc_correction + MILIS_IN_SECOND );
+				this.diff = this.diff + (this.acc_correction + MILIS_IN_SECOND ) * delta;
+				this.acc_correction = 0;
 				
 				if(this.options.mode == 'down' && this.diff <= 0) {
 					// deadline reached while suspended, change mode and send current
@@ -517,7 +548,6 @@
 			// e.g. texts are dirty
 		},
 		display : function(new_values) {
-			
 			var prev, next;
 			if(typeof this.current_values.seconds === 'undefined') {
 				// first hard init case. Make this logic better!!! ***
@@ -528,7 +558,6 @@
 			} else {
 				prev = this.current_values;
 			}
-			
 			next = new_values;
 			
 			// Update counter output
@@ -814,11 +843,6 @@
 				}
 				
 				$el = this.elements[prefix][this.getElementHash(el)];
-				
-				// overload standard style with twins-from and apply
-				// Now we do in on server, no need to repeat same action every second...
-				//styles = $.extend(el.styles, el.tweens.from);
-				// $el.css(styles);
 				
 				// apply tween.from styles
 				$el.css(el.tweens.from);
@@ -1319,7 +1343,9 @@
 							
 							// convert deadline to javascript Date
 							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
-							
+
+							// init awake detect timestamp
+							self.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
 							self.updateCounter(self.getCounterValues(self.options.now));
 							
 							// widget registration in container is
@@ -1332,9 +1358,6 @@
 							
 							// We have to set counter mode limits and units display after geeting new event
 							self.setCounterUnitsVisibility(self.current_values);
-							
-							// init awake detect timestamp
-							self.awake_detect = new Date().getTime();
 						} else {
 							// error
 						}
