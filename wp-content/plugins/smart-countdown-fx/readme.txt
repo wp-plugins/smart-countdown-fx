@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.0.1
+Stable tag: 1.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,25 +14,23 @@ Smart Countdown FX implements a lot of features, but two of them make it differ
 
 * years and months (along with “traditional” weeks, days, hours, minutes and seconds) can be displayed in the countdown interval.
 
-* counter digits changes are animated and these animations are not hard-coded – site administrator can easily switch between available <a href="http://smartcalc.es/wp/index.php/category/animation-profiles/">animation profiles</a> included with the plugin or added later.
+* counter digits changes are animated and these animations are not hard-coded – site administrator can easily switch between available animation profiles, included with the plugin or added later.
   
-* event [import plugins][5] support, no need to manually edit widget settings or shortcode for recurring events. 
+* event import plugins support, no need to manually edit widget settings or shortcode for recurring events. 
 
 **Other features**
 
 Smart Countdown FX can show both countdown and count up counters, and it will switch to the “count up” mode automatically when the event time arrives. Event description can be configured individually for countdown and count up modes and can containt HTML markup allowed for a post.
 
-Smart Countdown FX supports different layouts. Most popular layouts (sidebar, shortcode, shortcode compact, etc.) are included in the package and can be selected in the widget options or using a [shortcode][1] attribute. Custom layout presets can be easily created using existing ones as a starting point. You will find detailed instructions in the [documentation][2].
+Smart Countdown FX supports different layouts. Most popular layouts (sidebar, shortcode, shortcode compact, etc.) are included in the package and can be selected in the widget options or using a shortcode attribute. Custom layout presets can be easily created using existing ones as a starting point. You will find detailed instructions in the documentation..
 
-Smart Countdown FX widget is responsive. Open [Layouts Demo][3] page on different handheld devices or just change your browser window width if you are on a desktop to see “responsive” feature in action.
+Smart Countdown FX widget is responsive. Open "Responsive" page on different handheld devices or just change your browser window width if you are on a desktop to see the feature in action.
 
 More than one countdown can be displayed on the same page, each instance with its individual settings and configuration.
 
-Events import plugins are supported. [View plugins][5] available for download
+Events import plugins are supported.
 
-[Project home page][6]
-
-For complete list of features [see this page][4]
+[Project home page][1]
 
 **Coming soon**
 
@@ -40,12 +38,7 @@ For complete list of features [see this page][4]
 
 * More animation profiles.
 
- [1]: http://smartcalc.es/wp/index.php/shortcode/
- [2]: http://smartcalc.es/wp/index.php/layout-presets-fine-tuning/
- [3]: http://smartcalc.es/wp/index.php/layouts-demo/
- [4]: http://smartcalc.es/wp/index.php/features/
- [5]: http://smartcalc.es/wp/index.php/category/event-import-plugins/
- [6]: http://smartcalc.es/wp/
+ [1]: http://smartcalc.es/wp/
 
 == Installation ==
 Extract the zip file and just drop the contents in the wp-content/plugins/ directory of your WordPress installation and then activate the Plugin from Plugins page.
@@ -76,6 +69,10 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.1 =
+
+* suspend/resume detection threshold set to a greater value - improves counter stability on mobile devices
 
 = 1.0.1 = 
 

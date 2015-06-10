@@ -588,7 +588,7 @@ abstract class SmartCountdown_Helper {
 						// get broken. At the moment we implement this workaround - explicitly add a style if a "tween.from"
 						// property is missing. Later we can check if this can be done in client script and/or if there are
 						// clear guidelines for correcting existing animation profiles
-						foreach ( $elConfig['tweens']['from'] as $style => &$value ) {
+						foreach ( $elConfig['tweens']['from'] as $style => $value ) {
 							if ( !isset( $elConfig['styles'][$style] ) ) {
 								$elConfig['styles'][$style] = $value;
 							}
