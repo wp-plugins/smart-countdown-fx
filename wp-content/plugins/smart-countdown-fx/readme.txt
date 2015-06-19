@@ -3,20 +3,20 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.1
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Smart Countdown FX displays a responsive animated countdown. Supports years and months display and recurring events
 
 == Description ==
-Smart Countdown FX implements a lot of features, but two of them make it different from the most of existing web countdowns:
+Smart Countdown FX key features:
 
 * years and months (along with “traditional” weeks, days, hours, minutes and seconds) can be displayed in the countdown interval.
 
-* counter digits changes are animated and these animations are not hard-coded – site administrator can easily switch between available animation profiles, included with the plugin or added later.
+* counter digits changes are animated and site administrator can easily switch between available [animation profiles][2], included with the plugin or added later.
   
-* event import plugins support, no need to manually edit widget settings or shortcode for recurring events. 
+* event [import plugins][3] support, no need to manually edit widget settings or shortcode for recurring or calendar events. 
 
 **Other features**
 
@@ -39,13 +39,15 @@ Events import plugins are supported.
 * More animation profiles.
 
  [1]: http://smartcalc.es/wp/
+ [2]: http://smartcalc.es/wp/index.php/category/animation-profiles/
+ [3]: http://smartcalc.es/wp/index.php/category/event-import-plugins/
 
 == Installation ==
 Extract the zip file and just drop the contents in the wp-content/plugins/ directory of your WordPress installation and then activate the Plugin from Plugins page.
 
 == Frequently Asked Questions ==
 = How does one use the shortcode, exactly? =
-<http://smartcalc.es/wp/index.php/shortcode/> - complete list of shortcode attributes has been provided to answer this exact question.
+<http://smartcalc.es/wp/index.php/reference/> - complete list of shortcode attributes has been provided to answer this exact question.
 
 = How can I add new animation effects? =
 <http://smartcalc.es/wp/index.php/installing-more-animations/> - detailed instructions on installing additional animation profiles.
@@ -69,6 +71,11 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.1.2 =
+
+* frontend translations added for French, German and Italian
+* line-height in event titles fixed in responsive behavior
 
 = 1.1 =
 
