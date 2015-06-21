@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,11 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.1.3 =
+
+* critical bug fix - some code was not compatible with PHP < 5.3.0
+* line-height corrected in text animations
 
 = 1.1.2 =
 
