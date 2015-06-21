@@ -6,7 +6,7 @@
 	<digit scope="*">
 		<styles>
 			<style name="font-size" unit="px" value="50" scalable="1" />
-			<style name="line-height" unit="em" value="1" />
+			<style name="line-height" unit="em" value="1.2" />
 			<style name="height" unit="em" value="1" scalable="0" />
 			<style name="width" unit="em" value="0.6" scalable="0" />
 		</styles>
