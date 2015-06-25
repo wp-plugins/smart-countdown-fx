@@ -72,10 +72,9 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 
 == Changelog ==
 
-= 1.1.3 =
+= 1.2 =
 
-* critical bug fix - some code was not compatible with PHP < 5.3.0
-* line-height corrected in text animations
+* responsive behavior refactored
 
 = 1.1.2 =
 

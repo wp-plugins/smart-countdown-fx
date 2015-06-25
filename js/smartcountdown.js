@@ -1,5 +1,4 @@
 (function($) {
-	
 	const MILIS_IN_DAY = 86400000;
 	const MILIS_IN_HOUR = 3600000;
 	const MILIS_IN_MINUTE = 60000;
@@ -13,7 +12,7 @@
 	const HOURS_IN_DAY = 24;
 	const MONTHS_IN_YEAR = 12;
 	
-	const SUSPEND_THRESHHOLD = 500;
+	const SUSPEND_THRESHOLD = 950;
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -35,8 +34,12 @@
 				this.timer = window.setInterval(function() {
 					scds_container.fireAllCounters();
 				}, MILIS_IN_SECOND);
+				// avoid massive resize events
 				$(window).resize(function() {
-					scds_container.responsiveAdjust();
+					clearTimeout($.data(this, 'resizeTimer'));
+					$.data(this, 'resizeTimer', setTimeout(function() {
+						scds_container.responsiveAdjust();
+					}, 100));
 				});
 			}
 		},
@@ -129,7 +132,8 @@
 			this.options.original_title_after_up = this.options.title_after_up;
 			*/
 			
-			if(this.options.customize_preview == 1) {
+			this.options.customize_preview = this.options.customize_preview && $.inArray(this.options.id, this.options.customize_preview) !== -1;
+			if(this.options.customize_preview) {
 				// Customize preview - get deadline from temporal instance
 				// or TODO: event import plugin ?
 				
@@ -138,22 +142,17 @@
 				 * additional params (?) - we have to block widget SQL query by ID, because
 				 * it will provide main instance settings, not the temporal one... $$$
 				 */
-				
 				this.options.deadline = new Date(new Date(this.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
-				
-				this.updateCounter(this.getCounterValues(this.options.now));
-				
-				scds_container.updateInstance(this.getId(), this);
 				
 				// init awake detect timestamp
 				this.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
+				
+				this.updateCounter(this.getCounterValues(this.options.now));
+				scds_container.updateInstance(this.options.id, this);
 			} else {
 				// normal view - get next event from server
 				this.queryNextEvent(true);
 			}
-		},
-		getId : function() {
-			return this.options.id || 0;
 		},
 		tick : function(from_timer) {
 			var delta = this.options.mode == 'up' ? 1 : -1;
@@ -185,12 +184,12 @@
 				// on early stage we get a tick right after the init tick - it is the first
 				// one triggered by fireAllCounters() timer. Usually is comes in approx. 250ms
 				// after the init tick but just in case we catch an abnormal delay here
-				this.acc_correction = elapsed > MILIS_IN_SECOND ? elapsed : 0;
+				this.acc_correction = elapsed >= MILIS_IN_SECOND ? elapsed : 0;
 			}
 			
 			// At this point "acc_correction" should be around 0 for normal run
 			
-			if(this.acc_correction > SUSPEND_THRESHHOLD) {
+			if(this.acc_correction > SUSPEND_THRESHOLD) {
 				// suspend-resume detected. Adjust timestamps by the time
 				// actually elapsed while suspended
 				this.options.now += (this.acc_correction + MILIS_IN_SECOND );
@@ -205,9 +204,7 @@
 					// recalculate counter values
 					// when browser is resumed, values queue can contain
 					// values which are not sequential. We pass "resumed"
-					// parameter here to indicate that counter units
-					// visibility has to be checked during at least 4 tick
-					// cycles (so that entire queue is checked)
+					// parameter here (reserved)
 					this.softInitCounter(true);
 				}
 				// simplify animations on resume
@@ -594,11 +591,11 @@
 		},
 		displayTexts : function() {
 			if(this.options.mode == 'up') {
-				$('#' + this.getId() + '-title-before').html(this.options.title_before_up);
-				$('#' + this.getId() + '-title-after').html(this.options.title_after_up);
+				$('#' + this.options.id + '-title-before').html(this.options.title_before_up);
+				$('#' + this.options.id + '-title-after').html(this.options.title_after_up);
 			} else {
-				$('#' + this.getId() + '-title-before').html(this.options.title_before_down);
-				$('#' + this.getId() + '-title-after').html(this.options.title_after_down);
+				$('#' + this.options.id + '-title-before').html(this.options.title_before_down);
+				$('#' + this.options.id + '-title-after').html(this.options.title_after_down);
 			}
 		},
 		/**
@@ -1023,7 +1020,7 @@
 				}
 			});
 			
-			this.setLabelsPosition();
+			this.setRowVerticalAlign();
 			
 			var counter_container = $('#' + this.options.id);
 			
@@ -1101,7 +1098,21 @@
 			}
 		},
 		
+		/*
+		 * TODO: check if we can optimize calls to this method. For now it is called twice
+		 * in some cases. This is not a big problem - the function is quite fast and at most
+		 * called each minute, but for the sake of code cleanness...
+		 */
 		setRowVerticalAlign : function() {
+			// calculate labels maximum width(s) for all singular/plural forms
+			if(typeof this.label_min_widths === 'undefined') {
+				// widths are calculated in em, so it has to be done only once
+				if(this.updateMinLabelsWidth() === false) {
+					// updateMinLabelsWidth failed, e.g. no visible labels - do nothing
+					return;
+				}
+			}
+			
 			// align digits - for counter column layout only
 			var digits = $('#' + this.options.id + ' .scd-unit-vert .scd-digits-row:visible');
 			if(digits.length > 0) {
@@ -1115,144 +1126,320 @@
 				});
 				digits.css('min-width', maxWidth);
 			}
-			// align labels
-			// here we rely on maximum width of visible labels
-			// if at the moment of measurement the longest plural/singular
-			// form is not dipslayed, the calculation below may give wrong results
-			// *** TODO: of course we can call this every second... find a better solution!
-			// We can simply not allow "left" labels position - no need for the code below
-			// ALTERNATIVES: get maximum labels width on init, set min-width for lables in styles -
-			// Also important for horizontal counter layout! *** for now we only check vertical
-			// layout
+			
+			// Labels min-widths are expressed in 'em'.
+			
+			// all row labels for vertical counter layout must have the same min-width =
+			// maximum width of all labels/all forms
 			var labels = $('#' + this.options.id + ' .scd-unit-vert .scd-label-row:visible');
+			labels.css('min-width', this.labels_max_width + 'em');
+			
+			// for horizontal counter layout we set:
+			// - column labels: to maximum width of all labels/all forms
+			// - row labels: to maximum width of all forms for this label only
+			labels = $('#' + this.options.id + ' .scd-unit-horz .scd-label:visible');
 			if(labels.length > 0) {
-				var maxWidth = 0, width;
-				labels.css('min-width', '');
+				var self = this;
 				labels.each(function() {
-					width = $(this).width();
-					if(width > maxWidth) {
-						maxWidth = width;
+					var $this = $(this);
+					width = $this.width();
+					if($this.hasClass('scd-label-col')) {
+						// same width for all
+						$this.css('min-width', self.labels_max_width + 'em');
+					} else {
+						// maximum width for this label (singular/plural forms)
+						$this.css('min-width', self.label_min_widths[$this.attr('id')] + 'em');
 					}
 				});
-				labels.css('min-width', maxWidth);
 			}
+			this.setLabelsPosition();
+		},
+		
+		updateMinLabelsWidth : function() {
+			// use the fisrt visible label as test element for measuring. This method is called only once per
+			// script life-time and on early stage, so we can rely on visible pseudo-selector: counter visibilty
+			// is not updated yet, so all labels are visible. This can be a design flaw if program logic changes
+			var test_label = $('#' + this.options.id + ' .scd-label:visible').first(), unit, label_id, width, max_width = 0;
+			if(test_label.length == 0) {
+				// panic
+				return false;
+			}
+			// backup existing text
+			var the_text = test_label.text();
+			// reset measurement
+			test_label.css('min-width', '');
+			this.label_min_widths = {};
+			// loop through all label strings injected in js script
+			for(label_key in smartcountdownstrings) {
+				// get unit name for object key
+				unit = label_key.split('_', 1)[0];
+				if(!unit) {
+					unit = label_key;
+				}
+				// constuct label id - it will be used as label_min_widths key and for fast
+				// access to label attributes
+				label_id = this.options.id + '-' + unit + '-label';
+				
+				if(typeof this.label_min_widths[label_id] === 'undefined') {
+					// on first iteration initialize the value
+					this.label_min_widths[label_id] = 0;
+				}
+				// set test label text
+				test_label.text(smartcountdownstrings[label_key]);
+				// do the measurement in 'em' based on labels size
+				width = test_label.width() / this.options.labels_size;
+				// update unit maximum
+				if(this.label_min_widths[label_id] < width) {
+					this.label_min_widths[label_id] = width;
+				}
+				// keep track of the maximum-for-all width
+				if(max_width < width) {
+					max_width = width;
+				}
+				// all widths are expressed in em, but stored as float numbers -
+				// make sure we append 'em' to these values when applying as css
+			}
+			// store maximum-for-all width
+			this.labels_max_width = max_width;
+			// clean up - restore original text of the test label
+			test_label.text(the_text);
 		},
 		
 		// update labels vertical position for left or right labels placement
 		setLabelsPosition : function() {
+			// reset position for column lables
+			$('#' + this.options.id + ' .scd-label-col:visible').css('position', '');
+			
 			// adjust labels position if neeed (if vertical label position is set)
 			var labels = $('#' + this.options.id + ' .scd-label-row:visible');
 			if(labels.length > 0) {
 				var digitsDiv, digitsHeight, labelHeight, top, self = this;
-				//labels.css('height', '');
 				labels.each(function() {
-					digitsDiv = $(this).siblings('.scd-digits-row');
+					var $this = $(this);
+					digitsDiv = $this.siblings('.scd-digits-row');
 					digitsHeight = digitsDiv.height();
-					labelHeight = $(this).height();
-					$(this).css('position', 'relative');
-					switch(self.options.labels_vert_align) {
-					case 'top' :
-						top = 0;
-						break;
-					case 'bottom' :
-						top = digitsHeight - labelHeight;
-						break;
-					case 'high' :
-						top = labelHeight * 0.5;
-						break;
-					case 'low' :
-						top = digitsHeight - labelHeight * 1.5;
-						break;
-					case 'superscript' :
-						top = labelHeight * -0.5;
-						break;
-					case 'subscript' :
-						top = digitsHeight - labelHeight / 2;
-						break;
-					default:
-						top = digitsHeight / 2 - labelHeight / 2;
+					labelHeight = $this.height();
+					
+					// check if digits and label are horizontally overlapping
+					var a = digitsDiv[0].getBoundingClientRect();
+					var b = this.getBoundingClientRect();
+					if(!( // we allow adjacent divs
+							b.left > a.right ||
+							b.right < a.left ||
+							b.top > a.bottom ||
+							b.bottom < a.top
+					)) {
+						$this.css('position', '');
+						$this.css('top', '');
+						return true; // continue iteration
 					}
-					$(this).css('top', top);
+					// continue with position (normal flow)
+					$this.css('position', 'relative');
+					switch(self.options.labels_vert_align) {
+						case 'top' :
+							top = 0;
+							break;
+						case 'bottom' :
+							top = digitsHeight - labelHeight;
+							break;
+						case 'high' :
+							top = labelHeight * 0.5;
+							break;
+						case 'low' :
+							top = digitsHeight - labelHeight * 1.5;
+							break;
+						case 'superscript' :
+							top = labelHeight * -0.5;
+							break;
+						case 'subscript' :
+							top = digitsHeight - labelHeight / 2;
+							break;
+						default:
+							top = digitsHeight / 2 - labelHeight / 2;
+					}
+					$this.css('top', top);
 				});
 			}
 		},
 		
 		resetAlignments : function(counter_container) {
-			counter_container.find('.scd-label').css({position : '', top : ''});
+			counter_container.find('.scd-label').css({ position : '', top : '' });
 			counter_container.find('.scd-label, .scd-digits').css('min-width', '');
 		},
 		
 		responsiveAdjust : function(width) {
 			var responsive = this.options.responsive;
-			if(!responsive || responsive.length == 0) {
-				return;
-			}	
-			var counter_container = $('#' + this.options.id), i, size_preset, adjusted = false;
+			var counter_container = $('#' + this.options.id), i, scale = 1.0, self = this;
 			
-			// we have to reset all existing labels and digits alignment before proceeding with
-			// responsive adjust
-			this.resetAlignments(counter_container);
-			
-			// iterate through responsive sizes, except the last node, because it has a special role:
-			// it is a generic default preset for the rest of screen widths (normally a "desktop" case)
-			
-			// IMPORTANT: sizes nodes must be sorted ascending, otherwise responsive behavior will be
-			// unpredictable
-			for(i = 0; i < responsive.length - 1; i++) {
-				size_preset = responsive[i];
-				if(width < size_preset.sizes.value) {
-					// the first size that is grater than current width will win
-					
-					// apply scale
-					counter_container.css('font-size', this.options.base_font_size * size_preset.sizes.scale);
-					
-					// apply additional classes (if any)
-					if(size_preset.alt_classes.length > 0) {
-						$.each(size_preset.alt_classes, function(index, classes) {
-							if($.isArray(classes)) {
-								$.each(classes, function(ci, c) {
-									counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
-								});
-							} else {
-								counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
-							}
-						});
-					}
-					
-					// we are done - no need to continue looping
-					adjusted = true;
-					break;
-				}
-			}
-			if(!adjusted) {
-				// apply default scale and layout: we rely on the last node in responsive sizes, as it
-				// defines the scale and classes for all sizes that are greater that the listed ones
+			if(responsive && responsive.length > 0) {
+				// responsive behavior
+
+				// we have to reset all existing labels and digits alignment before proceeding with
+				// responsive adjust
+				this.resetAlignments(counter_container);
+				
+				// reset container font before starting measurments
 				counter_container.css('font-size', this.options.base_font_size);
-				standard_preset = responsive[responsive.length - 1];
-				if(standard_preset.alt_classes.length > 0) {
-					$.each(standard_preset.alt_classes, function(index, classes) {
-						if($.isArray(classes)) {
-							$.each(classes, function(ci, c) {
-								counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
-							});
-						} else {
-							counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
-						}
-					});
+				
+				// restore original layout before measurement
+				var scale_preset = responsive[responsive.length - 1];
+				this.applyLayout(counter_container, scale_preset.alt_classes);
+				
+				// update layout for new font size for correct measurement
+				this.setRowVerticalAlign();
+				
+				// check if horizontal-layout units wrap
+				
+				/*
+				 * TODO: 
+				 * we still have a problem with floating divs and images - if one is present we have to float the counter block also!
+				 */
+				var is_wrapping = this.checkWrapping(counter_container.find('.scd-unit-horz:visible, .scd-title-row'));
+				
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = counter_container.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					// $$$ Check why we have to use 0.95 k for scale???
+					scale = container_width / required_width * 0.95;
 				}
+
+				// check extreme case - wrapping digits in unit, do not allow this
+				var digit_groups = counter_container.find('.scd-digits:visible'), is_wrapped = false;
+				digit_groups.each(function() {
+					var $this = $(this);
+					var is_wrapping = self.checkWrapping($this.find('.scd-digit'));
+
+					if(is_wrapping.wrapped_width > 0) {
+						var container_width = $this.width();
+						var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+						
+						var this_scale = container_width / required_width * 0.95;
+						// only update current effective scale if we get a lower value here
+						if(this_scale < scale) {
+							scale = this_scale;
+						}
+						is_wrapped = true;
+					}
+				});
+				
+				// we have suggested scale at this point
+				//console.log('Scale: ' + scale);
+
+				// Look at scale alternative layouts in responsive settings
+				
+				// IMPORTANT: scale nodes must be sorted ascending, otherwise responsive behavior will be
+				// unpredictable
+				for(i = 0; i < responsive.length; i++) {
+					var scale_preset = responsive[i];
+					if(scale <= scale_preset.scale) {
+						// apply additional classes (if any)
+						this.applyLayout(counter_container, scale_preset.alt_classes);
+						
+						// we are done - no need to continue looping
+						break;
+					}
+				}
+				
+				// we have alternative layout applied
+				
+				// prepare to repeat measurement with updated layout - reset base font
+				scale = 1.0;
+				counter_container.css('font-size', this.options.base_font_size);
+				
+				// realign labels and measure units (for column layouts)
+				this.setRowVerticalAlign();
+				
+				// check if horizontal-layout units wrap
+				var is_wrapping = this.checkWrapping(counter_container.find('.scd-unit-horz:visible, .scd-title-row'));
+				
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = counter_container.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					// $$$ Check why we have to use 0.95 k for scale???
+					scale = container_width / required_width * 0.95;
+					counter_container.css('font-size', this.options.base_font_size * scale);
+					
+					// update layout for new base font size
+					this.setRowVerticalAlign();
+				}
+			} else {
+				// prepare for next measurement if responsive feature is disabled
+				counter_container.css('font-size', this.options.base_font_size);
 			}
-			// realign labels and measure units (for column layouts)
+			
+			// even if responsive feature is disabled we always check for digits wrapping and
+			// scale the widget so that all digits in units are placed on the same line
+			var digit_groups = counter_container.find('.scd-digits:visible'), is_wrapped = false;
+			digit_groups.each(function() {
+				var $this = $(this);
+				var is_wrapping = self.checkWrapping($this.find('.scd-digit'));
+
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = $this.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					var this_scale = container_width / required_width * 0.95;
+					// only update current effective scale if we get a lower value here
+					if(this_scale < scale) {
+						scale = this_scale;
+					}
+					is_wrapped = true;
+				}
+			});
+			if(is_wrapped) {
+				// apply new calulated scale
+				counter_container.css('font-size', this.options.base_font_size * scale);
+			}
+			// update layout for new base font size
 			this.setRowVerticalAlign();
-			this.setLabelsPosition();
+		},
+		
+		checkWrapping : function(units) {
+			var row_width = 0, wrapped_width = 0, top = null;
+			units.each(function() {
+				var $this = $(this), unit_position = $this.position();
+				if(top === null) {
+					top = unit_position.top;
+				}
+				if(top != unit_position.top) {
+					wrapped_width += $this.outerWidth(true);
+				} else {
+					row_width += $this.outerWidth(true);
+				}
+			});
+			return {
+				row_width : row_width, // top row width (non-wrapped units)
+				wrapped_width : wrapped_width // all other rows (wrapped units)
+			};
+		},
+		
+		applyLayout : function(counter_container, alt_classes) {
+			if(alt_classes.length > 0) {
+				$.each(alt_classes, function(index, classes) {
+					if($.isArray(classes)) {
+						$.each(classes, function(ci, c) {
+							counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
+							
+							//console.log('selector: ' + c.selector + ', removing: ' + c.remove + ', adding: ' + c.add);
+						});
+					} else {
+						counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
+						
+						//console.log('selector: ' + classes.selector + ', removing: ' + classes.remove + ', adding: ' + classes.add);
+					}
+				});
+			}
 		},
 		
 		queryNextEvent : function(isNew) {
 			var self = this;
 			
 			// show spinner
-			$('#' + self.getId() + '-loading').show();
+			$('#' + self.options.id + '-loading').show();
 			
-			$('#' + self.getId() + ' .scd-all-wrapper').hide();
+			$('#' + self.options.id + ' .scd-all-wrapper').hide();
 			
 			var queryData = {
 				action : 'scd_query_next_event',
@@ -1277,9 +1464,9 @@
 					queryData,
 					function(response) {
 						// hide spinner
-						$('#' + self.getId() + '-loading').hide();
+						$('#' + self.options.id + '-loading').hide();
 						
-						$('#' + self.getId() + ' .scd-all-wrapper').show();
+						$('#' + self.options.id + ' .scd-all-wrapper').show();
 						
 						if(response.err_code == 0) {
 							// Actually we have "self" object already initialized and
@@ -1332,7 +1519,7 @@
 								
 								// detach counter from container - this is a definitive
 								// shut-down for this counter instance, as there are no future events
-								scds_container.remove(self.getId());
+								scds_container.remove(self.options.id);
 								
 								$('#' + self.options.id).hide();
 								return;
@@ -1353,7 +1540,7 @@
 							// to next event in a running widgets doesn't require
 							// adding widget to container because it is already there
 							if(isNew) {
-								scds_container.updateInstance(self.getId(), self);
+								scds_container.updateInstance(self.options.id, self);
 							}
 							
 							// We have to set counter mode limits and units display after geeting new event
@@ -1364,9 +1551,9 @@
 					}
 				).fail(function(jqxhr, textStatus, error) {
 					// report error here...
-					$('#' + self.getId() + '-loading').hide();
+					$('#' + self.options.id + '-loading').hide();
 					
-					$('#' + self.getId() + ' .scd-all-wrapper').show();
+					$('#' + self.options.id + ' .scd-all-wrapper').show();
 				});
 		}
 	}
