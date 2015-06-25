@@ -132,7 +132,8 @@
 			this.options.original_title_after_up = this.options.title_after_up;
 			*/
 			
-			if(this.options.customize_preview == 1) {
+			this.options.customize_preview = this.options.customize_preview && $.inArray(this.options.id, this.options.customize_preview) !== -1;
+			if(this.options.customize_preview) {
 				// Customize preview - get deadline from temporal instance
 				// or TODO: event import plugin ?
 				
@@ -141,15 +142,13 @@
 				 * additional params (?) - we have to block widget SQL query by ID, because
 				 * it will provide main instance settings, not the temporal one... $$$
 				 */
-				
 				this.options.deadline = new Date(new Date(this.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
-				
-				this.updateCounter(this.getCounterValues(this.options.now));
-				
-				scds_container.updateInstance(this.options.id, this);
 				
 				// init awake detect timestamp
 				this.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
+				
+				this.updateCounter(this.getCounterValues(this.options.now));
+				scds_container.updateInstance(this.options.id, this);
 			} else {
 				// normal view - get next event from server
 				this.queryNextEvent(true);
