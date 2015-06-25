@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 0.9
+Version: 1.2
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -62,13 +62,15 @@ class SmartCountdown_Widget extends WP_Widget {
 			'title_after_style' => '',
 			'digits_style' => '',
 			'labels_style' => '',
+			'base_font_size' => SCD_BASE_FONT_SIZE,
 			
 			'widget_style' => '',
 			'redirect_url' => '',
 			'click_url' => '',
 			
 			'fx_preset' => 'Sliding_text_fade.xml',
-			'layout_preset' => 'sidebar.xml' 
+			'layout_preset' => 'sidebar.xml',
+			'import_config' => '' 
 	);
 	public function __construct() {
 		$widget_ops = array (
@@ -104,42 +106,54 @@ class SmartCountdown_Widget extends WP_Widget {
 		// Overload instance settings using a configuration file (if found)
 		$instance = SmartCountdown_Helper::getCounterConfig( $instance );
 		
-		$instance ['id'] = $args ['widget_id'];
+		$instance['id'] = $args['widget_id'];
 		
 		// set hide_lower_units option basing on display configuration. For lowest units
 		// not included into display configuration we set "hide unit" flag and
 		// reactivate unit in display config. *** Document this better
 		$hide_lower_units = array ();
-		if ( $instance ['allow_lowest_zero'] == 0 ) {
-			foreach ( array_reverse( $instance ['units'], true ) as $asset => $display ) {
+		if ( $instance['allow_lowest_zero'] == 0 ) {
+			foreach ( array_reverse( $instance['units'], true ) as $asset => $display ) {
 				if ( $display == 0 ) {
-					$hide_lower_units [] = $asset;
-					$instance ['units'] [$asset] = 1;
+					$hide_lower_units[] = $asset;
+					$instance['units'][$asset] = 1;
 				} else {
 					// first unit set as displayed, break the loop
 					break;
 				}
 			}
 		}
-		$instance ['hide_lower_units'] = $hide_lower_units;
+		$instance['hide_lower_units'] = $hide_lower_units;
 		
-		$instance ['animations'] = SmartCountdown_Helper::getAnimations( $instance );
-		if ( $instance ['animations'] === false ) {
+		$instance['animations'] = SmartCountdown_Helper::getAnimations( $instance );
+		if ( $instance['animations'] === false ) {
 			// log error here!!!
 			// echo '<h3>FX profile invalid!</h3>';
 			return;
 		}
 		
-		/* TEST CODE */
+		/*
+		 * TEST CODE
+		 *
+		 * At the moment we ignore "import plugin" setting
+		 *
+		 * Actually we have a full-featured temporal instance here, so we could
+		 * implement a real preview. Will have to refactor js script also.
+		 *
+		 * $$$ check if it is possible
+		 */
 		if ( is_customize_preview() ) {
-			$instance ['customize_preview'] = 1;
-			$instance = SmartCountdown_Helper::getInternalCounter( $instance );
+			$instance['customize_preview'] = 1;
+			$instance = SmartCountdown_Helper::updateDeadlineUTC( $instance );
+			// must inject now for correct customize_preview
+			$now_ts = current_time( 'timestamp', true );
+			$instance['now'] = $now_ts * 1000;
 		}
 		
 		/*
 		 * *** TODO: use apply_filters to sanitize / convert other widget output!
 		 */
-		$title = apply_filters( 'widget_title', empty( $instance ['title'] ) ? '' : $instance ['title'], $instance, $this->id_base );
+		$title = apply_filters( 'widget_title', empty( $instance['title'] ) ? '' : $instance['title'], $instance, $this->id_base );
 		
 		/*
 		 * We are using standard before/after-widget and before/after-title properties here... Check if they make sense
@@ -149,21 +163,21 @@ class SmartCountdown_Widget extends WP_Widget {
 		// If the widget is rendered using a shortcode we must wrap it into a container DIV:
 		// 1. Have a reliable wrapper to conditionally show/hide the widget
 		// 2. Apply responsive feature changing font-size of the container
-		if ( !empty( $instance ['shortcode'] ) ) {
+		if ( !empty( $instance['shortcode'] ) ) {
 			?>
 <div id="<?php echo $instance['id']; ?>" style="font-size:<?php echo SCD_BASE_FONT_SIZE ?>px">
 			<?php
 		}
 		
-		echo $args ['before_widget'];
-		if ( !empty( $title ) && $instance ['show_title'] ) {
-			echo $args ['before_title'] . $title . $args ['after_title'];
+		echo $args['before_widget'];
+		if ( !empty( $title ) && $instance['show_title'] ) {
+			echo $args['before_title'] . $title . $args['after_title'];
 		}
-		$widget_style = !empty( $instance ['widget_style'] ) ? ' style="' . $instance ['widget_style'] . '"' : '';
+		$widget_style = !empty( $instance['widget_style'] ) ? ' style="' . $instance['widget_style'] . '"' : '';
 		?>
 			<div class="textwidget" <?php echo $widget_style; ?>><?php echo SmartCountdown_Helper::getCounterHtml($instance); ?></div>
 		<?php
-		echo $args ['after_widget'];
+		echo $args['after_widget'];
 		
 		?>
 			<script type="text/javascript">
@@ -174,7 +188,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		<?php
 		
 		// Close the wrapper div if the widget is rendered using a shortcode
-		if ( !empty( $instance ['shortcode'] ) ) {
+		if ( !empty( $instance['shortcode'] ) ) {
 			?>
 			</div>
 <?php
@@ -183,55 +197,57 @@ class SmartCountdown_Widget extends WP_Widget {
 	public function update( $new_instance, $old_instance ) {
 		$instance = $old_instance;
 		// widget title
-		$instance ['title'] = strip_tags( $new_instance ['title'] );
+		$instance['title'] = strip_tags( $new_instance['title'] );
 		
 		// event texts
 		$allowed_tags = wp_kses_allowed_html( 'post' );
-		$instance ['title_before_down'] = stripslashes( wp_kses( $new_instance ['title_before_down'], $allowed_tags ) );
-		$instance ['title_after_down'] = stripslashes( wp_kses( $new_instance ['title_after_down'], $allowed_tags ) );
-		$instance ['title_before_up'] = stripslashes( wp_kses( $new_instance ['title_before_up'], $allowed_tags ) );
-		$instance ['title_after_up'] = stripslashes( wp_kses( $new_instance ['title_after_up'], $allowed_tags ) );
+		$instance['title_before_down'] = stripslashes( wp_kses( $new_instance['title_before_down'], $allowed_tags ) );
+		$instance['title_after_down'] = stripslashes( wp_kses( $new_instance['title_after_down'], $allowed_tags ) );
+		$instance['title_before_up'] = stripslashes( wp_kses( $new_instance['title_before_up'], $allowed_tags ) );
+		$instance['title_after_up'] = stripslashes( wp_kses( $new_instance['title_after_up'], $allowed_tags ) );
 		
 		// font sizes
-		$instance ['title_before_size'] = ( int ) $new_instance ['title_before_size'];
-		$instance ['title_after_size'] = ( int ) $new_instance ['title_after_size'];
-		$instance ['digits_size'] = ( int ) $new_instance ['digits_size'];
-		$instance ['labels_size'] = ( int ) $new_instance ['labels_size'];
+		$instance['title_before_size'] = ( int ) $new_instance['title_before_size'];
+		$instance['title_after_size'] = ( int ) $new_instance['title_after_size'];
+		$instance['digits_size'] = ( int ) $new_instance['digits_size'];
+		$instance['labels_size'] = ( int ) $new_instance['labels_size'];
 		
 		// elements styles
-		$instance ['widget_style'] = esc_html( $new_instance ['widget_style'] );
+		$instance['widget_style'] = esc_html( $new_instance['widget_style'] );
 		
-		$instance ['title_before_style'] = esc_html( $new_instance ['title_before_style'] );
-		$instance ['title_after_style'] = esc_html( $new_instance ['title_after_style'] );
+		$instance['title_before_style'] = esc_html( $new_instance['title_before_style'] );
+		$instance['title_after_style'] = esc_html( $new_instance['title_after_style'] );
 		
-		$instance ['digits_style'] = esc_html( $new_instance ['digits_style'] );
-		$instance ['labels_style'] = esc_html( $new_instance ['labels_style'] );
+		$instance['digits_style'] = esc_html( $new_instance['digits_style'] );
+		$instance['labels_style'] = esc_html( $new_instance['labels_style'] );
 		
-		$instance ['redirect_url'] = strip_tags( $new_instance ['redirect_url'] );
-		$instance ['click_url'] = strip_tags( $new_instance ['click_url'] );
+		$instance['redirect_url'] = strip_tags( $new_instance['redirect_url'] );
+		$instance['click_url'] = strip_tags( $new_instance['click_url'] );
 		
 		// deadline
-		if ( !empty( $new_instance ['deadline'] ) ) {
+		if ( !empty( $new_instance['deadline'] ) ) {
 			try {
-				$deadline = new DateTime( $new_instance ['deadline'] );
-				$instance ['deadline'] = $deadline->format( 'Y-m-d H:i:s' );
+				$deadline = new DateTime( $new_instance['deadline'] );
+				$instance['deadline'] = $deadline->format( 'Y-m-d H:i:s' );
 			} catch ( Exception $e ) {
-				$instance ['deadline'] = '';
+				$instance['deadline'] = '';
 			}
 		} else {
-			$instance ['deadline'] = '';
+			$instance['deadline'] = '';
 		}
 		
-		$instance ['fx_preset'] = esc_html( $new_instance ['fx_preset'] );
-		$instance ['layout_preset'] = esc_html( $new_instance ['layout_preset'] );
+		$instance['fx_preset'] = esc_html( $new_instance['fx_preset'] );
+		$instance['layout_preset'] = esc_html( $new_instance['layout_preset'] );
 		
-		foreach ( array_keys( self::$defaults ['units'] ) as $unit ) {
-			$instance ['units'] [$unit] = !empty( $new_instance ['units_' . $unit] ) ? 1 : 0;
+		foreach ( array_keys( self::$defaults['units'] ) as $unit ) {
+			$instance['units'][$unit] = !empty( $new_instance['units_' . $unit] ) ? 1 : 0;
 		}
 		
-		$instance ['hide_countup_counter'] = empty( $new_instance ['hide_countup_counter'] ) ? 0 : 1;
+		$instance['hide_countup_counter'] = empty( $new_instance['hide_countup_counter'] ) ? 0 : 1;
 		
-		list ( $instance ['countdown_limit'], $instance ['countup_limit'] ) = explode( ':', $new_instance ['counter_modes'] );
+		$instance['import_config'] = strip_tags( $new_instance['import_config'] );
+		
+		list ( $instance['countdown_limit'], $instance['countup_limit'] ) = explode( ':', $new_instance['counter_modes'] );
 		
 		return $instance;
 	}
@@ -257,48 +273,51 @@ class SmartCountdown_Widget extends WP_Widget {
 				'deadline' => '',
 				'fx_preset' => 'Sliding_text_fade.xml',
 				'layout_preset' => 'sidebar.xml',
-				'units' => self::$defaults ['units'],
+				'units' => self::$defaults['units'],
 				'hide_countup_counter' => 0,
 				'countdown_limit' => -1,
 				'countup_limit' => -1,
 				'redirect_url' => '',
-				'click_url' => '' 
+				'click_url' => '',
+				'import_config' => '' 
 		) );
 		
-		$title = strip_tags( $instance ['title'] );
+		$title = strip_tags( $instance['title'] );
 		
 		$allowed_tags = wp_kses_allowed_html( 'post' );
 		
-		$title_before_down = wp_kses( $instance ['title_before_down'], $allowed_tags );
-		$title_after_down = wp_kses( $instance ['title_after_down'], $allowed_tags );
-		$title_before_up = wp_kses( $instance ['title_before_up'], $allowed_tags );
-		$title_after_up = wp_kses( $instance ['title_after_up'], $allowed_tags );
+		$title_before_down = wp_kses( $instance['title_before_down'], $allowed_tags );
+		$title_after_down = wp_kses( $instance['title_after_down'], $allowed_tags );
+		$title_before_up = wp_kses( $instance['title_before_up'], $allowed_tags );
+		$title_after_up = wp_kses( $instance['title_after_up'], $allowed_tags );
 		
-		$digits_size = ( int ) $instance ['digits_size'];
-		$labels_size = ( int ) $instance ['labels_size'];
+		$digits_size = ( int ) $instance['digits_size'];
+		$labels_size = ( int ) $instance['labels_size'];
 		
-		$title_before_size = ( int ) $instance ['title_before_size'];
-		$title_after_size = ( int ) $instance ['title_after_size'];
+		$title_before_size = ( int ) $instance['title_before_size'];
+		$title_after_size = ( int ) $instance['title_after_size'];
 		
-		$digits_style = strip_tags( $instance ['digits_style'] );
-		$labels_style = strip_tags( $instance ['labels_style'] );
+		$digits_style = strip_tags( $instance['digits_style'] );
+		$labels_style = strip_tags( $instance['labels_style'] );
 		
-		$title_before_style = strip_tags( $instance ['title_before_style'] );
-		$title_after_style = strip_tags( $instance ['title_after_style'] );
+		$title_before_style = strip_tags( $instance['title_before_style'] );
+		$title_after_style = strip_tags( $instance['title_after_style'] );
 		
-		$widget_style = strip_tags( $instance ['widget_style'] );
+		$widget_style = strip_tags( $instance['widget_style'] );
 		
-		$deadline = !empty( $instance ['deadline'] ) ? $instance ['deadline'] : '';
+		$deadline = !empty( $instance['deadline'] ) ? $instance['deadline'] : '';
 		
-		$fx_preset = strip_tags( $instance ['fx_preset'] );
-		$layout_preset = strip_tags( $instance ['layout_preset'] );
+		$fx_preset = strip_tags( $instance['fx_preset'] );
+		$layout_preset = strip_tags( $instance['layout_preset'] );
 		
-		$redirect_url = strip_tags( $instance ['redirect_url'] );
-		$click_url = strip_tags( $instance ['click_url'] );
+		$redirect_url = strip_tags( $instance['redirect_url'] );
+		$click_url = strip_tags( $instance['click_url'] );
 		
-		$hide_countup_counter = ( int ) $instance ['hide_countup_counter'];
+		$hide_countup_counter = ( int ) $instance['hide_countup_counter'];
 		
-		$counter_modes = ( int ) $instance ['countdown_limit'] . ':' . ( int ) $instance ['countup_limit'];
+		$counter_modes = ( int ) $instance['countdown_limit'] . ':' . ( int ) $instance['countup_limit'];
+		
+		$import_config = strip_tags( $instance['import_config'] );
 		
 		// In customize preview we must disable datepicker and fall back to a simple text field
 		if ( is_customize_preview() ) {
@@ -321,6 +340,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		value="<?php echo $deadline; ?>"
 		class="<?php echo $date_picker_class; ?>" />
 </p>
+<?php echo SmartCountdown_Helper::enabledImportConfigs( $this->get_field_id( 'import_config' ), $this->get_field_name( 'import_config' ), $import_config ); ?>
 <p>
 	<label for="<?php echo $this->get_field_id('counter_modes'); ?>"><?php _e('Counter display mode:', 'smart-countdown'); ?></label>
 			<?php
@@ -329,6 +349,7 @@ class SmartCountdown_Widget extends WP_Widget {
 				'type' => 'optgroups',
 				'options' => array (
 						'-1:-1' => __( 'Auto - both countdown and count up', 'smart-countdown' ),
+						//'-1:60' => 'Quick up limit test',
 						__( 'Only before event (countdown)', 'smart-countdown' ) => array (
 								'-1:0' => __( 'Countdown - no limit', 'smart-countdown' ),
 								'3600:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
@@ -339,6 +360,7 @@ class SmartCountdown_Widget extends WP_Widget {
 						),
 						__( 'Only after event (count up)', 'smart-countdown' ) => array (
 								'0:-1' => __( 'Count up - no limit', 'smart-countdown' ),
+								'0:60' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d minute', '%d minutes', 1, 'smart-countdown' ), 1 ) ),
 								'0:3600' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
 								'0:86400' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 24, 'smart-countdown' ), 24 ) ),
 								'0:604800' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d week', '%d weeks', 1, 'smart-countdown' ), 1 ) ) 
@@ -378,7 +400,9 @@ class SmartCountdown_Widget extends WP_Widget {
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'fx_preset' ), $this->get_field_name( 'fx_preset' ), $fx_preset, array (
 				'type' => 'filelist',
 				'extension' => 'xml',
-				'folder' => dirname( __FILE__ ) . '/includes/animations' 
+				// we must also provide an alternative folder for added profiles, because they have to be stored outside of plugin
+				// directory to avoid deletion on plugin update
+				'folder' => array( dirname( __FILE__ ) . '/includes/animations', dirname( __FILE__ ) . '/../smart-countdown-animations' )
 		) );
 		?></p>
 <p>
@@ -503,7 +527,7 @@ class SmartCountdown_Widget extends WP_Widget {
 			
 			wp_register_script( 'jquery-ui-timepicker-addon', $plugin_url . '/js/vendor/jquery-ui-timepicker-addon.min.js', array (
 					'jquery' 
-			));
+			) );
 			wp_enqueue_script( 'jquery-ui-timepicker-addon' );
 			
 			wp_register_script( 'smartcountdown-admin-script', $plugin_url . '/js/vendor/timepicker.collapse.js', array (
@@ -511,7 +535,7 @@ class SmartCountdown_Widget extends WP_Widget {
 					'jquery-ui-datepicker',
 					'jquery-ui-slider',
 					'jquery-ui-timepicker-addon' 
-			));
+			) );
 			wp_enqueue_script( 'smartcountdown-admin-script' );
 			
 			wp_register_style( 'collapse-admin-css', $plugin_url . '/admin/collapse-style.css' );
@@ -529,10 +553,14 @@ class SmartCountdown_Widget extends WP_Widget {
 		$plugin_url = plugins_url() . '/' . dirname( plugin_basename( __FILE__ ) );
 		
 		// this script is required for extended animation easing
-		wp_register_script( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js', array( 'jquery' ) );
+		wp_register_script( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js', array (
+				'jquery' 
+		) );
 		wp_enqueue_script( 'easing-script' );
 		
-		wp_register_script( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js', array( 'jquery' ) );
+		wp_register_script( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js', array (
+				'jquery' 
+		) );
 		wp_enqueue_script( 'smartcountdown-counter-script' );
 		
 		wp_register_style( 'smartcountdown-counter-style', $plugin_url . '/css/smartcountdown.css' );
@@ -568,46 +596,101 @@ class SmartCountdown_Widget extends WP_Widget {
 		);
 		
 		if ( !check_ajax_referer( 'scd_query_next_event', 'smartcountdown_nonce', false ) ) {
-			$response ['err_code'] = 100;
-			$response ['err_msg'] = 'Invalid Token!';
+			$response['err_code'] = 100;
+			$response['err_msg'] = 'Invalid Token!';
 		} else {
-			if ( !empty( $_REQUEST ['id'] ) ) {
+			// get current UNIX timestamp to include it to response
+			$now_ts = current_time( 'timestamp', true );
+			
+			if ( !empty( $_REQUEST['id'] ) ) {
 				// this is a widget and we need an ID to find correct settings in the database
-				$id = sanitize_key( $_REQUEST ['id'] );
+				$id = sanitize_key( $_REQUEST['id'] );
 				if ( strpos( $id, 'smartcountdown-' ) !== 0 ) {
-					$response ['err_code'] = 101;
-					$response ['err_msg'] = 'Invalid Request!';
+					$response['err_code'] = 101;
+					$response['err_msg'] = 'Invalid Request!';
 				}
 				
 				$id = ( int ) substr( $id, strlen( 'smartcountdown-' ) );
 				
 				$widgets = get_option( 'widget_smartcountdown' );
-				if ( isset( $widgets [$id] ) ) {
-					$instance = $widgets [$id];
+				if ( isset( $widgets[$id] ) ) {
+					$instance = $widgets[$id];
 					
-					/*
-					 * At the moment we always call getInternalCounter() here. This is OK if no event import
-					 * plugins as installed and enabled, so that we read the event time and duration (along with
-					 * other possible settings) direclty from the widget configuration.
-					 *
-					 * Once we implement event import plugins (bridges) we can look for installed plugins and call
-					 * a special method (i.e. observer) to import the next event in queue. Currently not implemented
-					 */
-					
-					$response ['options'] = SmartCountdown_Helper::getInternalCounter( $instance );
+					if ( !empty( $instance['import_config'] ) ) {
+						// try calling event import plugins
+						$instance = apply_filters( 'smartcountdownfx_get_event', $instance, $now_ts );
+						
+						if ( isset( $instance['imported'] ) ) {
+							// at least one import plugin enabled
+							if ( empty( $instance['imported'] ) ) {
+								// no current or future events
+								$instance['deadline'] = '';
+							} else {
+								$instance = SmartCountdown_Helper::processImportedEvents( $instance, $now_ts );
+							}
+						} else {
+							// import plugins were desactivated or uninstalled
+							$instance['deadline'] = '';
+						}
+					} else {
+						// no import plugins enabled, get the deadline from widget settings
+						$instance = SmartCountdown_Helper::updateDeadlineUTC( $instance );
+						
+						// if the deadline in widget settings is too far in past (more than
+						// countup_limit difference from now, if countup_limit is set) we 
+						// have to definitely disable the counter sending empty string as
+						// the new deadline
+						$deadline = new DateTime( $instance['deadline'] );
+						if ( $instance['countup_limit'] >= 0 && $now_ts - $deadline->getTimestamp() >= $instance['countup_limit'] ) {
+							$instance['deadline'] = '';
+						}
+					}
+					// add instance to response
+					$response['options'] = $instance;
 				} else {
-					$response ['err_code'] = 101;
-					$response ['err_msg'] = 'Invalid Request!';
+					$response['err_code'] = 101;
+					$response['err_msg'] = 'Invalid Request!';
 				}
 			} else {
 				// this is a call from shortcode counter
-				$deadline = new DateTime( $_REQUEST ['deadline'] );
-				// we use simplified parameter here - the only thing we are interested on return is a correctly
-				// formatted "deadline" (with timezone correction) and the server "now"
-				$response ['options'] = SmartCountdown_Helper::getInternalCounter( array (
-						'deadline' => $deadline->format( 'Y-m-d H:i:s' ) 
-				) );
+				
+				$import_config = esc_attr( $_REQUEST['import_config'] );
+				if ( empty( $import_config ) ) {
+					try {
+						$deadline = new DateTime( $_REQUEST['deadline'] );
+						// we use simplified parameter here - the only thing we are interested on return is a correctly
+						// formatted "deadline" (with timezone correction)
+						$response['options'] = SmartCountdown_Helper::updateDeadlineUTC( array (
+								'deadline' => $deadline->format( 'Y-m-d H:i:s' ) 
+						) );
+					} catch ( Exception $e ) {
+						// invalid date in request. TODO: Log error
+						$response['options']['deadline'] = '';
+					}
+				} else {
+					// for event import to work we need countup limit from request
+					$countup_limit = ( int ) $_REQUEST['countup_limit'];
+					$options['import_config'] = $import_config;
+					$options['countup_limit'] = $countup_limit;
+					$options = apply_filters( 'smartcountdownfx_get_event', $options, $now_ts );
+					if ( isset( $options['imported'] ) ) {
+						// at least one import plugin enabled
+						if ( empty( $options['imported'] ) ) {
+							// no current or future events
+							$options['deadline'] = '';
+						} else {
+							$options = SmartCountdown_Helper::processImportedEvents( $options, $now_ts );
+						}
+					} else {
+						// import plugins were desactivated or uninstalled
+						$options['deadline'] = '';
+					}
+					
+					$response['options'] = $options;
+				}
 			}
+			// add current now in milis to response
+			$response['options']['now'] = $now_ts * 1000;
 		}
 		
 		ob_clean();
@@ -627,15 +710,22 @@ class SmartCountdown_Widget extends WP_Widget {
 				'title_after_up' => '',
 				'fx_preset' => 'Sliding_text_fade.xml',
 				'layout_preset' => 'shortcode_compact.xml',
-				'digits_size' => 36,
+				'digits_size' => 40,
 				'labels_size' => 10,
-				'title_before_size' => 24,
-				'title_after_size' => 18,
+				'title_before_size' => 20,
+				'title_after_size' => 16,
 				'units' => '*',
 				'mode' => 'auto',
 				'hide_countup_counter' => '0',
 				'redirect_url' => '',
-				'click_url' => '' 
+				'click_url' => '',
+				'title_before_style' => '',
+				'title_after_style' => '',
+				'import_config' => '',
+				'digits_style' => '',
+				'labels_style' => '',
+			
+				'widget_style' => ''
 		), $atts, 'smartcountdown' );
 		
 		/*
@@ -657,36 +747,36 @@ class SmartCountdown_Widget extends WP_Widget {
 			$title_after_up = array ();
 			preg_match( '/\[title_after_up\]([\s\S]*)\[\/title_after_up\]/', $content, $title_after_up );
 			
-			if ( !empty( $title_before_down [1] ) ) {
-				$atts ['title_before_down'] = wp_kses( htmlspecialchars_decode( $title_before_down [1] ), $allowed_tags );
+			if ( !empty( $title_before_down[1] ) ) {
+				$atts['title_before_down'] = wp_kses( htmlspecialchars_decode( $title_before_down[1] ), $allowed_tags );
 			}
-			if ( !empty( $title_after_down [1] ) ) {
-				$atts ['title_after_down'] = wp_kses( htmlspecialchars_decode( $title_after_down [1] ), $allowed_tags );
+			if ( !empty( $title_after_down[1] ) ) {
+				$atts['title_after_down'] = wp_kses( htmlspecialchars_decode( $title_after_down[1] ), $allowed_tags );
 			}
-			if ( !empty( $title_before_up [1] ) ) {
-				$atts ['title_before_up'] = wp_kses( htmlspecialchars_decode( $title_before_up [1] ), $allowed_tags );
+			if ( !empty( $title_before_up[1] ) ) {
+				$atts['title_before_up'] = wp_kses( htmlspecialchars_decode( $title_before_up[1] ), $allowed_tags );
 			}
-			if ( !empty( $title_after_up [1] ) ) {
-				$atts ['title_after_up'] = wp_kses( htmlspecialchars_decode( $title_after_up [1] ), $allowed_tags );
+			if ( !empty( $title_after_up[1] ) ) {
+				$atts['title_after_up'] = wp_kses( htmlspecialchars_decode( $title_after_up[1] ), $allowed_tags );
 			}
 		}
 		
-		if ( empty( $atts ['id'] ) ) {
+		if ( empty( $atts['id'] ) ) {
 			// make sure we do not have ids collision
 			$rnd = rand( 1000, 9999 );
 			$widgets = get_option( 'widget_smartcountdown' );
-			while ( isset( $widgets [$rnd] ) ) {
+			while ( isset( $widgets[$rnd] ) ) {
 				$rnd = rand( 1000, 9999 );
 			}
 			$id = 'smartcountdown-' . $rnd;
-			$atts ['id'] = $id;
+			$atts['id'] = $id;
 		}
 		// for manually set ids site admin is responsible for ids security
 		
 		// convert units list to an array
-		$units_selected = array_map( 'trim', explode( ',', $atts ['units'] ) );
-		if ( count( $units_selected ) == 1 && $units_selected [0] == '*' ) {
-			$units = self::$defaults ['units'];
+		$units_selected = array_map( 'trim', explode( ',', $atts['units'] ) );
+		if ( count( $units_selected ) == 1 && $units_selected[0] == '*' ) {
+			$units = self::$defaults['units'];
 		} else {
 			$units = array (
 					'years' => 0,
@@ -698,52 +788,53 @@ class SmartCountdown_Widget extends WP_Widget {
 					'seconds' => 0 
 			);
 			foreach ( $units_selected as $unit ) {
-				$units [$unit] = 1;
+				$units[$unit] = 1;
 			}
 		}
-		$atts ['units'] = $units;
+		$atts['units'] = $units;
 		
 		// By default we activate both countdown and count up without time limits
-		$atts ['countdown_limit'] = $atts ['countup_limit'] = -1;
+		$atts['countdown_limit'] = $atts['countup_limit'] = -1;
 		
 		// check direct modes
-		if ( $atts ['mode'] == 'countdown' ) {
+		if ( $atts['mode'] == 'countdown' ) {
 			// contdown only
-			$atts ['countup_limit'] = 0;
-		} elseif ( $atts ['mode'] == 'countup' ) {
+			$atts['countup_limit'] = 0;
+		} elseif ( $atts['mode'] == 'countup' ) {
 			// conunt up only
-			$atts ['countdown_limit'] = 0;
+			$atts['countdown_limit'] = 0;
 		} else {
 			// fully-qualified limits. Must be written in format: mode="countdown:NNN,countup:MMM", where
 			// NNN = seconds to show countdown before event, MMM = seconds elapsed after event when count up
 			// is hidden. No spaces are allowed. If the format is not correct, default "auto" mode will
-			// take effect
+			// take effect. It is possible to use "-1" for no limit
 			$matches = array ();
-			if ( preg_match( '/countdown:(\d+),countup:(\d+)/', $atts ['mode'], $matches ) ) {
-				$atts ['countdown_limit'] = $matches [1];
-				$atts ['countup_limit'] = $matches [2];
+			if ( preg_match( '/countdown:(-?\d+),countup:(-?\d+)/', $atts['mode'], $matches ) ) {
+				$atts['countdown_limit'] = $matches[1];
+				$atts['countup_limit'] = $matches[2];
 			}
 		}
 		
-		// We allow "free text" animation profile name
-		if( !empty ($atts['fx_preset'] ) ) {
+		// We allow "free text" animation profile name. Important: animation preset file
+		// name must start from a capital letter!
+		if ( !empty( $atts['fx_preset'] ) ) {
 			$atts['fx_preset'] = str_replace( ' ', '_', $atts['fx_preset'] );
-			if( substr( $atts['fx_preset'], -4 ) != '.xml' ) {
+			if ( substr( $atts['fx_preset'], -4 ) != '.xml' ) {
 				$atts['fx_preset'] = $atts['fx_preset'] . '.xml';
+				$atts['fx_preset'] = ucfirst( strtolower( $atts['fx_preset'] ) );
 			}
-			$atts['fx_preset'] = ucfirst( strtolower( $atts['fx_preset'] ) );
 		}
 		
 		// *** not sure that a simple settings replication from shortcode to args
 		// is the right way...
 		$args = array (
-				'widget_id' => $atts ['id'],
-				'before_widget' => $atts ['before_widget'],
-				'after_widget' => $atts ['after_widget'] 
+				'widget_id' => $atts['id'],
+				'before_widget' => $atts['before_widget'],
+				'after_widget' => $atts['after_widget'] 
 		);
 		
-		$atts ['shortcode'] = 1;
-		$tmp = new SmartCountdown_Widget( $atts ['id'], __( 'Smart Countdown FX' ) );
+		$atts['shortcode'] = 1;
+		$tmp = new SmartCountdown_Widget( $atts['id'], __( 'Smart Countdown FX' ) );
 		
 		ob_start();
 		echo $tmp->widget( $args, $atts );
@@ -756,7 +847,7 @@ class SmartCountdown_Widget extends WP_Widget {
 add_action( 'widgets_init', 'SmartCountdown_Widget::smartcountdown_widget_init' );
 add_shortcode( 'smartcountdown', 'SmartCountdown_Widget::short_code' );
 function smartcountdown_activation_check() {
-	if ( version_compare( $GLOBALS ['wp_version'], SCD_MINIMUM_REQUIRED_WP_VERSION, '<' ) ) {
+	if ( version_compare( $GLOBALS['wp_version'], SCD_MINIMUM_REQUIRED_WP_VERSION, '<' ) ) {
 		load_plugin_textdomain( 'smart-countdown' );
 		
 		$message = '<strong>' . sprintf( esc_html__( 'Smart Countdown FX requires WordPress %s or higher.', 'smart-countdown' ), SCD_MINIMUM_REQUIRED_WP_VERSION ) . '</strong>';
@@ -765,4 +856,9 @@ function smartcountdown_activation_check() {
 		exit();
 	}
 }
+function smartcountdown_uninstall() {
+	delete_option( 'widget_smartcountdown' );
+	delete_site_option( 'widget_smartcountdown' );
+}
 register_activation_hook( __FILE__, 'smartcountdown_activation_check' );
+register_uninstall_hook( __FILE__, 'smartcountdown_uninstall' );
