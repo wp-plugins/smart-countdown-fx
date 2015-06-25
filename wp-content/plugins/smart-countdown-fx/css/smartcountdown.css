@@ -8,7 +8,8 @@
 	width: 100%;
 	font-size: inherit;
 }
-.scd-title-col, .scd-title-row {
+/* some themes define line-height for elements, have to reset it for countdown */
+.scd-title-col, .scd-title-row, .scd-digits {
 	line-height: 1.2em;
 }
 .scd-title-col {
@@ -50,6 +51,7 @@
 }
 .scd-label-row {
 	float: left;
+	text-align: left;
 	margin: 0 0.5em;
 }
 .scd-digit {
@@ -68,7 +70,6 @@
 .scd-digit div {
 	font-size: inherit;
 }
-
 
 .spinner {
 	/* background url added dynamically in helper script */

@@ -1,6 +1,6 @@
 <?php
 /*
-Version: 1.1.3
+Version: 1.2
 Author: Alex Polonski
 Author URI: http://smartcalc.es
 License: GPL2
@@ -50,30 +50,43 @@ abstract class SmartCountdown_Helper {
 			),
 			'layout' => array (
 					'vert' => array (
+								'selector' => '.scd-unit',
+								'remove' => 'scd-unit-vert scd-unit-horz',
+								'add' => 'scd-unit-vert'
+					),
+					'horz' => array (
+								'selector' => '.scd-unit',
+								'remove' => 'scd-unit-vert scd-unit-horz',
+								'add' => 'scd-unit-horz'
+					) 
+			),
+			'event_text_pos' => array (
+					'vert' => array (
 							array (
-									'selector' => '.scd-unit',
-									'remove' => 'scd-unit-vert scd-unit-horz',
-									'add' => 'scd-unit-vert' 
+									'selector' => '.scd-title',
+									'remove' => 'scd-title-col scd-title-row clearfix',
+									'add' => 'scd-title-col clearfix'
 							),
 							array (
 									'selector' => '.scd-counter',
-									'remove' => 'scd-counter-col scd-counter-horz',
-									'add' => 'scd-counter-col' 
-							) 
+									'remove' => 'scd-counter-col scd-counter-row clearfix',
+									'add' => 'scd-counter-col clearfix'
+							)
 					),
 					'horz' => array (
 							array (
-									'selector' => '.scd-unit',
-									'remove' => 'scd-unit-vert scd-unit-horz',
-									'add' => 'scd-unit-horz' 
+									'selector' => '.scd-title',
+									'remove' => 'scd-title-col scd-title-row clearfix',
+									'add' => 'scd-title-row'
 							),
 							array (
 									'selector' => '.scd-counter',
-									'remove' => 'scd-counter-col scd-counter-horz',
-									'add' => 'scd-counter-horz' 
-							) 
-					) 
-			) 
+									'remove' => 'scd-counter-col scd-counter-row clearfix',
+									'add' => 'scd-counter-row'
+							)
+					)
+					
+			)
 	);
 	public static function getCounterConfig( $instance ) {
 		if ( !empty( $instance['layout_preset'] ) ) {
@@ -102,37 +115,6 @@ abstract class SmartCountdown_Helper {
 				$instance['paddings'][$padding] = ( int ) $xml->paddings->$padding;
 			}
 			
-			$responsive = array ();
-			
-			$is_responsive = $xml->responsive->attributes();
-			$is_responsive = ( int ) $is_responsive['value'];
-			
-			if ( $is_responsive ) {
-				// counter units padding settings
-				foreach ( $xml->responsive->children() as $size ) {
-					$attrs = array ();
-					foreach ( $size->attributes() as $k => $v ) {
-						$attrs[$k] = ( string ) $v;
-					}
-					$classes = array ();
-					foreach ( $size->children() as $layout ) {
-						$name = $layout->getName();
-						$value = ( string ) $layout;
-						
-						if ( isset( self::$layout_tpls[$name] ) && isset( self::$layout_tpls[$name][$value] ) ) {
-							$classes[] = self::$layout_tpls[$name][$value];
-						}
-					}
-					
-					$responsive[] = array (
-							'sizes' => $attrs,
-							'alt_classes' => $classes 
-					);
-				}
-			}
-			
-			$instance['responsive'] = $responsive;
-			
 			$instance['layout'] = ( string ) $xml->layout;
 			$instance['event_text_pos'] = ( string ) $xml->event_text_pos;
 			$instance['labels_pos'] = ( string ) $xml->labels_pos;
@@ -140,6 +122,53 @@ abstract class SmartCountdown_Helper {
 			
 			$instance['hide_highest_zeros'] = ( string ) $xml->hide_highest_zeros;
 			$instance['allow_lowest_zero'] = ( string ) $xml->allow_lowest_zero;
+			
+			$responsive = array ();
+				
+			$is_responsive = $xml->responsive->attributes();
+			$is_responsive = ( int ) $is_responsive['value'];
+				
+			if ( $is_responsive ) {
+			
+			
+				// screen sizes
+				foreach ( $xml->responsive->children() as $scale ) {
+						
+					$attrs = array ();
+					foreach ( $scale->attributes() as $k => $v ) {
+						$attrs[$k] = ( string ) $v;
+					}
+						
+					$classes = array ();
+					foreach ( $scale->children() as $layout ) {
+						$name = $layout->getName();
+						$value = ( string ) $layout;
+			
+						if ( isset( self::$layout_tpls[$name] ) && isset( self::$layout_tpls[$name][$value] ) ) {
+							$classes[] = self::$layout_tpls[$name][$value];
+						}
+					}
+						
+					$responsive[] = array (
+							'scale' => $attrs['value'],
+							'alt_classes' => $classes
+					);
+				}
+			
+				// add default scale 1.0 setting
+				$classes = array();
+				$classes[] = self::$layout_tpls['layout'][$instance['layout']];
+				$labels_pos = $instance['labels_pos'] == 'right' || $instance['labels_pos'] == 'left' ? 'row' : 'col';
+				$classes[] = self::$layout_tpls['labels_pos'][$labels_pos];
+				$classes[] = self::$layout_tpls['event_text_pos'][$instance['event_text_pos']];
+			
+				$responsive[] = array (
+						'scale' => 1.0,
+						'alt_classes' => $classes
+				);
+			}
+				
+			$instance['responsive'] = $responsive;
 			
 			$instance['base_font_size'] = SCD_BASE_FONT_SIZE;
 		}
@@ -188,13 +217,13 @@ abstract class SmartCountdown_Helper {
 		}
 		switch ( $layout['event_text_pos'] ) {
 			case 'horz' :
-				$layout['text_class'] = 'scd-title-row';
+				$layout['text_class'] = 'scd-title scd-title-row';
 				$layout['counter_class'] = 'scd-counter scd-counter-row scd-counter-' . $instance['layout'];
 				break;
 			case 'vert' :
 			default :
-				$layout['text_class'] = 'scd-title-col';
-				$layout['counter_class'] = 'scd-counter scd-counter-col';
+				$layout['text_class'] = 'scd-title scd-title-col clearfix';
+				$layout['counter_class'] = 'scd-counter scd-counter-col clearfix';
 		}
 		
 		$layout['units_class'] = 'scd-unit scd-unit-' . $instance['layout'];
