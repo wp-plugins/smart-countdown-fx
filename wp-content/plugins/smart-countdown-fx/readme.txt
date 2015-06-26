@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,9 +72,10 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 
 == Changelog ==
 
-= 1.2.1 =
+= 1.2.2 =
 
 * responsive behavior refactored
+* flexible suspend detection threshold - improved stability on slow devices
 
 = 1.1.2 =
 
