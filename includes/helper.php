@@ -52,11 +52,11 @@ abstract class SmartCountdown_Helper {
 					'vert' => array (
 								'selector' => '.scd-unit',
 								'remove' => 'scd-unit-vert scd-unit-horz',
-								'add' => 'scd-unit-vert'
+								'add' => 'scd-unit-vert clearfix'
 					),
 					'horz' => array (
 								'selector' => '.scd-unit',
-								'remove' => 'scd-unit-vert scd-unit-horz',
+								'remove' => 'scd-unit-vert scd-unit-horz clearfix',
 								'add' => 'scd-unit-horz'
 					) 
 			),
