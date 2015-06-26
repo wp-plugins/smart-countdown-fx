@@ -132,8 +132,7 @@
 			this.options.original_title_after_up = this.options.title_after_up;
 			*/
 			
-			this.options.customize_preview = this.options.customize_preview && $.inArray(this.options.id, this.options.customize_preview) !== -1;
-			if(this.options.customize_preview) {
+			if(this.options.customize_preview == 1) {
 				// Customize preview - get deadline from temporal instance
 				// or TODO: event import plugin ?
 				
@@ -574,6 +573,7 @@
 			// Update digits width if required
 			if(updateUnitsWidth) {
 				this.setRowVerticalAlign();
+				this.responsiveAdjust();
 			}
 			
 			if(this.initDisplay ||
@@ -1021,6 +1021,7 @@
 			});
 			
 			this.setRowVerticalAlign();
+			this.responsiveAdjust();
 			
 			var counter_container = $('#' + this.options.id);
 			
@@ -1267,7 +1268,7 @@
 			counter_container.find('.scd-label, .scd-digits').css('min-width', '');
 		},
 		
-		responsiveAdjust : function(width) {
+		responsiveAdjust : function(/*width*/) {
 			var responsive = this.options.responsive;
 			var counter_container = $('#' + this.options.id), i, scale = 1.0, self = this;
 			
@@ -1525,7 +1526,7 @@
 								return;
 							}
 							// *** TEST ***
-							//self.options.deadline = new Date(new Date().getTime() + 10000).toString();
+							//self.options.deadline = new Date(new Date().getTime() - 45000).toString();
 							// *** ***
 							
 							// convert deadline to javascript Date
