@@ -27,6 +27,9 @@
 	float: left;
 	margin: 0 0.5em;
 }
+.scd-unit {
+	display: inline-block;
+}
 .scd-unit-vert {
 	clear: left;
 	margin: 0.5em 0;

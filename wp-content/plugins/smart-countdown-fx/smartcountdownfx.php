@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 1.2
+Version: 1.2.1
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -144,10 +144,9 @@ class SmartCountdown_Widget extends WP_Widget {
 		 */
 		
 		if ( is_customize_preview() ) {
-			// in customize preview other smartcountdown widget may exist on the page. We have to
-			// include an array of ids of the widgets actually being customized in instance options,
-			// so that client js script can properly handle widget initialization (direct init vs
-			// AJAX query next event)
+			// in customize preview other smartcountdown widget may exist on the page.
+			// We have to set 'customize_preview' in instance options only if this instance,
+			// is being customized actually
 			$customized = json_decode( stripslashes( $_REQUEST['customized'] ), true );
 			if( !empty( $customized ) ) {
 				$scd_widgets_ids = array_keys( $customized );
@@ -157,7 +156,8 @@ class SmartCountdown_Widget extends WP_Widget {
 				foreach( $scd_widgets_ids as &$id ) {
 					$id = str_replace( array( '[', ']' ), array( '-', '' ), substr( $id, strlen( 'widget_' ) ) );
 				}
-				$instance['customize_preview'] = $scd_widgets_ids;
+				// check if current widget is being customized
+				$instance['customize_preview'] = in_array($instance['id'], $scd_widgets_ids);
 				$instance = SmartCountdown_Helper::updateDeadlineUTC( $instance );
 				// must inject now for correct customize_preview
 				$now_ts = current_time( 'timestamp', true );
