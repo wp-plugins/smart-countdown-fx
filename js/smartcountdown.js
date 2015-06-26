@@ -12,7 +12,9 @@
 	const HOURS_IN_DAY = 24;
 	const MONTHS_IN_YEAR = 12;
 	
-	const SUSPEND_THRESHOLD = 950;
+	const MIN_SUSPEND_THRESHOLD = 500; // standard threshold
+	const SUSPEND_THRESHOLD_RELAX_STEP = 2000; // temporarly increment threshold by this value
+	const SUSPEND_THRESHOLD_RESTRICT_STEP = 250; // gradually decrease threshold by this value
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -110,7 +112,8 @@
 		current_values : {},
 		elements : {},
 		awake_detect : 0,
-		acc_correction : 0, // reserved
+		acc_correction : 0,
+		SUSPEND_THRESHOLD : MIN_SUSPEND_THRESHOLD,
 		init_done : false,
 		
 		init : function(options) {
@@ -126,11 +129,7 @@
 			// during counter life to indicate the next query interval
 			this.options.original_countup_limit = this.options.countup_limit;
 			
-			/* reserved - "titles after" currently not needed, imported event titles are
-			 * appended to "titles before" only
-			this.options.original_title_after_down = this.options.title_after_down;
-			this.options.original_title_after_up = this.options.title_after_up;
-			*/
+			this.SUSPEND_THRESHOLD = MIN_SUSPEND_THRESHOLD;
 			
 			if(this.options.customize_preview == 1) {
 				// Customize preview - get deadline from temporal instance
@@ -188,7 +187,9 @@
 			
 			// At this point "acc_correction" should be around 0 for normal run
 			
-			if(this.acc_correction > SUSPEND_THRESHOLD) {
+			if(this.acc_correction > this.SUSPEND_THRESHOLD) {
+				this.SUSPEND_THRESHOLD += SUSPEND_THRESHOLD_RELAX_STEP;
+				
 				// suspend-resume detected. Adjust timestamps by the time
 				// actually elapsed while suspended
 				this.options.now += (this.acc_correction + MILIS_IN_SECOND );
@@ -209,6 +210,8 @@
 				// simplify animations on resume
 				this.initDisplay = true;
 				return;
+			} else if(this.SUSPEND_THRESHOLD > MIN_SUSPEND_THRESHOLD) {
+				this.SUSPEND_THRESHOLD -= SUSPEND_THRESHOLD_RESTRICT_STEP;
 			}
 			
 			// normal run, modify timestamps by 1000 exactly, so that
