@@ -1,6 +1,6 @@
 <?php
 /*
-Version: 1.2
+Version: 1.2.3
 Author: Alex Polonski
 Author URI: http://smartcalc.es
 License: GPL2
@@ -387,25 +387,46 @@ abstract class SmartCountdown_Helper {
 		
 		$counter_events = reset($timeline);
 		
-		$countup_limit = PHP_INT_MAX;
+		$countup_limit = null;
 		$concat_title = array();
+		
+		$countdown_to_end_events = array();
+		
 		foreach( $counter_events as &$event ) {
 			if( isset( $max_countup_limit )  && $event['duration'] > $max_countup_limit ) {
 				$event['duration'] = $max_countup_limit;
 			}
 			
-			if( $countup_limit > $event['duration'] ) {
+			if( is_null( $countup_limit ) || $countup_limit > $event['duration'] ) {
 				$countup_limit = $event['duration'];
 			}
 			
 			if( trim( $event['title'] ) != '' ) {
 				$concat_title[] =  $event['title'];
 			}
+			if( !empty( $event['is_countdown_to_end']) ) {
+				// we have met a countdown-to-end event
+				$countdown_to_end_events[] = $event;
+			}
 		}
-		$concat_title = implode(', ', $concat_title);
 		
+		if( !empty( $countdown_to_end_events ) ) { // at least one element is a "countdown-to-end"
+			// in countdown-to-event-end mode we force event duration to zero
+			$instance['countup_limit'] = 0;
+			// reconstruct concatenated title
+			$concat_title = array();
+			foreach( $countdown_to_end_events as $event ) {
+				if( trim( $event['title'] ) != '' ) {
+					$concat_title[] =  $event['title'];
+				}
+			}
+			$instance['is_countdown_to_end'] = 1;
+		} else { // all elements are "event starts"
+			$instance['countup_limit'] = $countup_limit;
+		}
+		// join titles to a string (may be empty string if no titles found)
+		$concat_title = implode(', ', $concat_title);
 		$instance['imported_title'] = $concat_title;
-		$instance['countup_limit'] = $countup_limit;
 		
 		$deadline = new DateTime();
 		$deadline->setTimestamp($deadline_ts);
@@ -838,5 +859,13 @@ abstract class SmartCountdown_Helper {
 		$html[] = '</p>';
 				
 		return implode( "\n", $html );
+	}
+	public static function importPluginsEnabled() {
+		$configs = array();
+		$configs = apply_filters( 'smartcountdownfx_get_import_configs', $configs );
+		if( empty( $configs ) ) {
+			return false;
+		}
+		return true;
 	}
 }

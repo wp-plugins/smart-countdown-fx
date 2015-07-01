@@ -130,6 +130,8 @@
 			this.options.original_countup_limit = this.options.countup_limit;
 			
 			this.SUSPEND_THRESHOLD = MIN_SUSPEND_THRESHOLD;
+			this.init_done = false;
+			this.acc_correction = 0;
 			
 			if(this.options.customize_preview == 1) {
 				// Customize preview - get deadline from temporal instance
@@ -182,7 +184,7 @@
 				// on early stage we get a tick right after the init tick - it is the first
 				// one triggered by fireAllCounters() timer. Usually is comes in approx. 250ms
 				// after the init tick but just in case we catch an abnormal delay here
-				this.acc_correction = elapsed >= MILIS_IN_SECOND ? elapsed : 0;
+				this.acc_correction = elapsed >= MILIS_IN_SECOND ? (elapsed - MILIS_IN_SECOND) : 0;
 			}
 			
 			// At this point "acc_correction" should be around 0 for normal run
@@ -214,10 +216,21 @@
 				this.SUSPEND_THRESHOLD -= SUSPEND_THRESHOLD_RESTRICT_STEP;
 			}
 			
-			// normal run, modify timestamps by 1000 exactly, so that
-			// small timer fluctuations will not accumulate timing errors
-			this.diff += delta * MILIS_IN_SECOND;
-			this.options.now += MILIS_IN_SECOND;
+			/* check system and internal "now" (for localhost)
+			console.log('===== Tick recoded at ' + new Date().toString() + ' =====');
+			console.log('Internal now: ' + new Date(this.options.now).toString());
+			*/
+			
+			// check for counter mode limits every tick - we do it before incrementing
+			// diff, so we react to countup limit reached on time
+			this.applyCounterLimits();
+			
+			if(this.init_done) {
+				// normal run, modify timestamps by 1000 exactly, so that
+				// small timer fluctuations will not accumulate timing errors
+				this.diff += delta * MILIS_IN_SECOND;
+				this.options.now += MILIS_IN_SECOND;
+			}
 
 			// copy current values to new_values
 			var new_values = $.extend({},this.current_values);
@@ -589,8 +602,9 @@
 			
 			this.current_values = new_values;
 			
+			// moved to tick itself
 			// check for counter mode limits every tick
-			this.applyCounterLimits();
+			//this.applyCounterLimits();
 		},
 		displayTexts : function() {
 			if(this.options.mode == 'up') {
@@ -1017,7 +1031,9 @@
 			$.each(this.options.units, function(asset, display) {
 				var unit_wrapper = $('#' + self.options.id + '-' + asset);
 				if(display == 1 && $.inArray(asset, hide_units) == -1) {
-					unit_wrapper.show();
+					//unit_wrapper.show();
+					// we have to display units as inline-block
+					unit_wrapper.css('display', 'inline-block');
 				} else {
 					unit_wrapper.hide();
 				}
@@ -1081,14 +1097,10 @@
 			if(this.options.mode == 'up') {
 				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILIS_IN_SECOND) {
 					/*
-					 * POSSIBLE ISSUE HERE: when switching to the next event, 2 AJAX requests are registered
-					 * in network console, with same response. This is not OK...
-					 * 
-					 * *** when resumed after sleep, only 1 request is done - OK.
-					 * when running - 2 requests - WHY? $$$
-					 */
-					
-					// go for the next event
+					console.log('Current diff: ' + this.diff);
+					console.log('Up limit: ' + this.options.countup_limit);
+					console.log('Internal now: ' + new Date(this.options.now).toString());
+					*/
 					this.queryNextEvent();
 					
 					// disable countup limit temporarly, so that no more queryNextEvent() are
@@ -1293,11 +1305,6 @@
 				this.setRowVerticalAlign();
 				
 				// check if horizontal-layout units wrap
-				
-				/*
-				 * TODO: 
-				 * we still have a problem with floating divs and images - if one is present we have to float the counter block also!
-				 */
 				var is_wrapping = this.checkWrapping(counter_container.find('.scd-unit-horz:visible, .scd-title-row'));
 				
 				if(is_wrapping.wrapped_width > 0) {
@@ -1367,7 +1374,7 @@
 					
 					// update layout for new base font size
 					this.setRowVerticalAlign();
-				}
+				}			
 			} else {
 				// prepare for next measurement if responsive feature is disabled
 				counter_container.css('font-size', this.options.base_font_size);
@@ -1425,13 +1432,9 @@
 					if($.isArray(classes)) {
 						$.each(classes, function(ci, c) {
 							counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
-							
-							//console.log('selector: ' + c.selector + ', removing: ' + c.remove + ', adding: ' + c.add);
 						});
 					} else {
 						counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
-						
-						//console.log('selector: ' + classes.selector + ', removing: ' + classes.remove + ', adding: ' + classes.add);
 					}
 				});
 			}
@@ -1482,7 +1485,11 @@
 							
 							self.options.deadline = response.options.deadline;
 							self.options.now = response.options.now;
-							
+							/*
+							console.log('Server now: ' + new Date(self.options.now).toString());
+							console.log('deadline: ' + self.options.deadline);
+							console.log('System now: ' + new Date().toString());
+							*/
 							// we append imported event title (if any) to counter titles
 							// or insert imported title if a placeholder found in original
 							if(typeof response.options.imported_title !== 'undefined') {
@@ -1516,6 +1523,12 @@
 								self.options.title_before_down = self.options.original_title_before_down.replace('%imported%', '');
 								self.options.title_before_up = self.options.original_title_before_up.replace('%imported%', '');
 							}
+							// some event import plugins may set is_countdown_to_end flag indicating that
+							// event date and time are actually end time for an event, so that we should display
+							// a countdown but with "up" title
+							if(response.options.is_countdown_to_end == 1) {
+								self.options.title_before_down = self.options.title_before_up;
+							}
 							self.options.countup_limit = response.options.countup_limit;
 							
 							if(response.options.deadline == '') {
@@ -1533,7 +1546,7 @@
 							// *** ***
 							
 							// convert deadline to javascript Date
-							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
+							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0*/).toString();
 
 							// init awake detect timestamp
 							self.awake_detect = new Date().getTime() - MILIS_IN_SECOND;

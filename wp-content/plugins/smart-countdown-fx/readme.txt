@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,12 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.2.3 =
+
+* added support for event import plugins which implement "countdown to event end" feature
+* Fixed CSS bug that erroneousely changed layout on new counter unit display (e.g. when count up crosses 1 minute value)
+* better clock sync on next event query (for event import plugins support)
 
 = 1.2.2 =
 
