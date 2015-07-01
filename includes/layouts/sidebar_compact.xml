@@ -15,16 +15,5 @@
 	<labels_vert_align>middle</labels_vert_align>
 	<hide_highest_zeros>1</hide_highest_zeros>
 	<allow_lowest_zero>0</allow_lowest_zero>
-	<responsive value="1">
-		<size value="320" scale="2.0">
-		</size>
-		<size value="480" scale="1.5">
-		</size>
-		<size value="768" scale="0.7">
-		</size>
-		<size value="960" scale="0.9">
-		</size>
-		<size value="*" scale="1.0">
-		</size>
-	</responsive>
+	<responsive value="0" />
 </layout>
