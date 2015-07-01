@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 1.2.2
+Version: 1.2.3
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -264,6 +264,18 @@ class SmartCountdown_Widget extends WP_Widget {
 		
 		list ( $instance['countdown_limit'], $instance['countup_limit'] ) = explode( ':', $new_instance['counter_modes'] );
 		
+		// do not allow uplimit -2 (countdown-to-end mode) if current import config is empty
+		if( empty( $instance['import_config'] ) && $instance['countup_limit'] == -2 ) {
+			$instance['countup_limit'] = -1;
+		}
+		// if special "-2" is set as countup limit, we set "countdown_to_end" option and reset the limit
+		if( $instance['countup_limit'] == -2 && SmartCountdown_Helper::importPluginsEnabled() ) {
+			$instance['countup_limit'] = 0;
+			$instance['countdown_to_end'] = 1;
+		} else {
+			$instance['countdown_to_end'] = 0;
+		}
+		
 		return $instance;
 	}
 	public function form( $instance ) {
@@ -329,9 +341,8 @@ class SmartCountdown_Widget extends WP_Widget {
 		$click_url = strip_tags( $instance['click_url'] );
 		
 		$hide_countup_counter = ( int ) $instance['hide_countup_counter'];
-		
-		$counter_modes = ( int ) $instance['countdown_limit'] . ':' . ( int ) $instance['countup_limit'];
-		
+		// if "countdown-to-end" mode enabled and there are import plugins installed we manually select the option here
+		$counter_modes = empty( $instance['countdown_to_end'] ) || !SmartCountdown_Helper::importPluginsEnabled() ? ( int ) $instance['countdown_limit'] . ':' . ( int ) $instance['countup_limit'] : '-1:-2';
 		$import_config = strip_tags( $instance['import_config'] );
 		
 		// In customize preview we must disable datepicker and fall back to a simple text field
@@ -357,59 +368,64 @@ class SmartCountdown_Widget extends WP_Widget {
 </p>
 <?php echo SmartCountdown_Helper::enabledImportConfigs( $this->get_field_id( 'import_config' ), $this->get_field_name( 'import_config' ), $import_config ); ?>
 <p>
-	<label for="<?php echo $this->get_field_id('counter_modes'); ?>"><?php _e('Counter display mode:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'counter_modes' ); ?>"><?php _e( 'Counter display mode:', 'smart-countdown' ); ?></label>
 			<?php
+		$mode_options = array (
+				'-1:-1' => __( 'Auto - both countdown and count up', 'smart-countdown' ),
+				//'-1:60' => 'Quick up limit test',
+				__( 'Only before event (countdown)', 'smart-countdown' ) => array (
+						'-1:0' => __( 'Countdown - no limit', 'smart-countdown' ),
+						'3600:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
+						'7200:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 2, 'smart-countdown' ), 2 ) ),
+						'86400:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 24, 'smart-countdown' ), 24 ) ),
+						'259200:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d day', '%d days', 3, 'smart-countdown' ), 3 ) ),
+						'604800:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d week', '%d weeks', 1, 'smart-countdown' ), 1 ) ) 
+				),
+				__( 'Only after event (count up)', 'smart-countdown' ) => array (
+						'0:-1' => __( 'Count up - no limit', 'smart-countdown' ),
+						'0:60' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d minute', '%d minutes', 1, 'smart-countdown' ), 1 ) ),
+						'0:3600' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
+						'0:86400' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 24, 'smart-countdown' ), 24 ) ),
+						'0:604800' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d week', '%d weeks', 1, 'smart-countdown' ), 1 ) ) 
+				)
+		);
+		// add "countdown-to-end" option if at least one event import plugin is enabled
+		if( SmartCountdown_Helper::importPluginsEnabled() ) {
+			$mode_options['-1:-2'] =  __( 'Auto + countdown to event end while in progress', 'smart-countdown' );
+		}
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'counter_modes' ), $this->get_field_name( 'counter_modes' ), $counter_modes, array (
 				'type' => 'optgroups',
-				'options' => array (
-						'-1:-1' => __( 'Auto - both countdown and count up', 'smart-countdown' ),
-						//'-1:60' => 'Quick up limit test',
-						__( 'Only before event (countdown)', 'smart-countdown' ) => array (
-								'-1:0' => __( 'Countdown - no limit', 'smart-countdown' ),
-								'3600:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
-								'7200:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 2, 'smart-countdown' ), 2 ) ),
-								'86400:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 24, 'smart-countdown' ), 24 ) ),
-								'259200:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d day', '%d days', 3, 'smart-countdown' ), 3 ) ),
-								'604800:0' => sprintf( __( 'Show counter %s before event', 'smart-countdown' ), sprintf( _n( '%d week', '%d weeks', 1, 'smart-countdown' ), 1 ) ) 
-						),
-						__( 'Only after event (count up)', 'smart-countdown' ) => array (
-								'0:-1' => __( 'Count up - no limit', 'smart-countdown' ),
-								'0:60' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d minute', '%d minutes', 1, 'smart-countdown' ), 1 ) ),
-								'0:3600' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 1, 'smart-countdown' ), 1 ) ),
-								'0:86400' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d hour', '%d hours', 24, 'smart-countdown' ), 24 ) ),
-								'0:604800' => sprintf( __( 'Hide counter %s after event', 'smart-countdown' ), sprintf( _n( '%d week', '%d weeks', 1, 'smart-countdown' ), 1 ) ) 
-						) 
-				) 
+				'options' => $mode_options
 		) );
 		?></p>
 <?php // title texts are already sanitized by wp_kses ?>
 <p>
-	<label for="<?php echo $this->get_field_id('title_before_down'); ?>"><?php _e('Title before counter for countdown mode', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_before_down' ); ?>"><?php _e( 'Title before counter for countdown mode', 'smart-countdown' ); ?></label>
 	<textarea class="widefat"
 		id="<?php echo $this->get_field_id('title_before_down'); ?>"
-		name="<?php echo $this->get_field_name('title_before_down'); ?>"><?php echo $title_before_down; ?></textarea>
+		name="<?php echo $this->get_field_name( 'title_before_down' ); ?>"><?php echo $title_before_down; ?></textarea>
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_after_down'); ?>"><?php _e('Title after counter for countdown mode', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_after_down' ); ?>"><?php _e( 'Title after counter for countdown mode', 'smart-countdown' ); ?></label>
 	<textarea class="widefat"
-		id="<?php echo $this->get_field_id('title_after_down'); ?>"
-		name="<?php echo $this->get_field_name('title_after_down'); ?>"><?php echo $title_after_down; ?></textarea>
+		id="<?php echo $this->get_field_id( 'title_after_down' ); ?>"
+		name="<?php echo $this->get_field_name( 'title_after_down' ); ?>"><?php echo $title_after_down; ?></textarea>
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_before_up'); ?>"><?php _e('Title before counter for count up mode', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_before_up' ); ?>"><?php _e('Title before counter for count up mode', 'smart-countdown'); ?></label>
 	<textarea class="widefat"
-		id="<?php echo $this->get_field_id('title_before_up'); ?>"
+		id="<?php echo $this->get_field_id( 'title_before_up' ); ?>"
 		name="<?php echo $this->get_field_name('title_before_up'); ?>"><?php echo $title_before_up; ?></textarea>
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_after_up'); ?>"><?php _e('Title after counter for count up mode', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_after_up' ); ?>"><?php _e( 'Title after counter for count up mode', 'smart-countdown' ); ?></label>
 	<textarea class="widefat"
-		id="<?php echo $this->get_field_id('title_after_up'); ?>"
-		name="<?php echo $this->get_field_name('title_after_up'); ?>"><?php echo $title_after_up; ?></textarea>
+		id="<?php echo $this->get_field_id( 'title_after_up' ); ?>"
+		name="<?php echo $this->get_field_name( 'title_after_up' ); ?>"><?php echo $title_after_up; ?></textarea>
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('fx_preset'); ?>"><?php _e('Counter animation profile:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'fx_preset' ); ?>"><?php _e( 'Counter animation profile:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'fx_preset' ), $this->get_field_name( 'fx_preset' ), $fx_preset, array (
@@ -421,7 +437,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		) );
 		?></p>
 <p>
-	<label for="<?php echo $this->get_field_id('layout_preset'); ?>"><?php _e('Widget layout preset:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'layout_preset' ); ?>"><?php _e( 'Widget layout preset:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'layout_preset' ), $this->get_field_name( 'layout_preset' ), $layout_preset, array (
@@ -432,14 +448,14 @@ class SmartCountdown_Widget extends WP_Widget {
 		?></p>
 <p>
 	<input class="checkbox"
-		id="<?php echo $this->get_field_id('hide_countup_counter'); ?>"
-		name="<?php echo $this->get_field_name('hide_countup_counter'); ?>"
+		id="<?php echo $this->get_field_id( 'hide_countup_counter' ); ?>"
+		name="<?php echo $this->get_field_name( 'hide_countup_counter' ); ?>"
 		type="checkbox" <?php echo ($hide_countup_counter ? ' checked' : ''); ?>" />
-	<label for="<?php echo $this->get_field_id('hide_countup_counter'); ?>"><?php _e('Use titles for count up mode as "Time has arrived" message', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'hide_countup_counter' ); ?>"><?php _e( 'Use titles for count up mode as "Time has arrived" message', 'smart-countdown' ); ?></label>
 </p>
-<?php echo SmartCountdown_Helper::checkboxesInput($this, $instance['units'], array('legend' => __('Display counter units:', 'smart-countdown'))); ?>
+<?php echo SmartCountdown_Helper::checkboxesInput( $this, $instance['units'], array( 'legend' => __( 'Display counter units:', 'smart-countdown' ) ) ); ?>
 <p>
-	<label for="<?php echo $this->get_field_id('title_before_size'); ?>"><?php _e('Text before counter font size:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_before_size' ); ?>"><?php _e( 'Text before counter font size:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'title_before_size' ), $this->get_field_name( 'title_before_size' ), $title_before_size, array (
@@ -450,7 +466,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		) );
 		?></p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_after_size'); ?>"><?php _e('Text after counter font size:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_after_size' ); ?>"><?php _e( 'Text after counter font size:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'title_after_size' ), $this->get_field_name( 'title_after_size' ), $title_after_size, array (
@@ -461,7 +477,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		) );
 		?></p>
 <p>
-	<label for="<?php echo $this->get_field_id('digits_size'); ?>"><?php _e('Counter digits size:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'digits_size' ); ?>"><?php _e( 'Counter digits size:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'digits_size' ), $this->get_field_name( 'digits_size' ), $digits_size, array (
@@ -472,7 +488,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		) );
 		?></p>
 <p>
-	<label for="<?php echo $this->get_field_id('labels_size'); ?>"><?php _e('Counter labels size:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'labels_size' ); ?>"><?php _e( 'Counter labels size:', 'smart-countdown' ); ?></label>
 			<?php
 		
 		echo SmartCountdown_Helper::selectInput( $this->get_field_id( 'labels_size' ), $this->get_field_name( 'labels_size' ), $labels_size, array (
@@ -483,53 +499,53 @@ class SmartCountdown_Widget extends WP_Widget {
 		) );
 		?></p>
 <p>
-	<label for="<?php echo $this->get_field_id('click_url'); ?>"><?php _e('Goto URL on widget click (leave this field empty to disable this feature):', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'click_url' ); ?>"><?php _e( 'Goto URL on widget click (leave this field empty to disable this feature):', 'smart-countdown' ); ?></label>
 	<input class="widefat"
 		id="<?php echo $this->get_field_id('click_url'); ?>"
 		name="<?php echo $this->get_field_name('click_url'); ?>" type="text"
 		value="<?php echo esc_attr($click_url); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('redirect_url'); ?>"><?php _e('Redirect to URL on contdown zero (leave this field empty to disable automatic redirection):', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'redirect_url' ); ?>"><?php _e( 'Redirect to URL on contdown zero (leave this field empty to disable automatic redirection):', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('redirect_url'); ?>"
-		name="<?php echo $this->get_field_name('redirect_url'); ?>"
-		type="text" value="<?php echo esc_attr($redirect_url); ?>" />
+		id="<?php echo $this->get_field_id( 'redirect_url' ); ?>"
+		name="<?php echo $this->get_field_name( 'redirect_url' ); ?>"
+		type="text" value="<?php echo esc_attr( $redirect_url ); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('widget_style'); ?>"><?php _e('Widget style - CSS rules separated and ended with a semicolon:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'widget_style' ); ?>"><?php _e( 'Widget style - CSS rules separated and ended with a semicolon:', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('widget_style'); ?>"
-		name="<?php echo $this->get_field_name('widget_style'); ?>"
-		type="text" value="<?php echo esc_attr($widget_style); ?>" />
+		id="<?php echo $this->get_field_id( 'widget_style' ); ?>"
+		name="<?php echo $this->get_field_name( 'widget_style' ); ?>"
+		type="text" value="<?php echo esc_attr( $widget_style ); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_before_style'); ?>"><?php _e('Text before counter style - CSS rules separated and ended with a semicolon:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_before_style' ); ?>"><?php _e( 'Text before counter style - CSS rules separated and ended with a semicolon:', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('title_before_style'); ?>"
-		name="<?php echo $this->get_field_name('title_before_style'); ?>"
-		type="text" value="<?php echo esc_attr($title_before_style); ?>" />
+		id="<?php echo $this->get_field_id( 'title_before_style' ); ?>"
+		name="<?php echo $this->get_field_name( 'title_before_style' ); ?>"
+		type="text" value="<?php echo esc_attr( $title_before_style ); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('title_after_style'); ?>"><?php _e('Text after counter style - CSS rules separated and ended with a semicolon:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'title_after_style' ); ?>"><?php _e( 'Text after counter style - CSS rules separated and ended with a semicolon:', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('title_after_style'); ?>"
-		name="<?php echo $this->get_field_name('title_after_style'); ?>"
-		type="text" value="<?php echo esc_attr($title_after_style); ?>" />
+		id="<?php echo $this->get_field_id( 'title_after_style' ); ?>"
+		name="<?php echo $this->get_field_name( 'title_after_style' ); ?>"
+		type="text" value="<?php echo esc_attr( $title_after_style ); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('digits_style'); ?>"><?php _e('Counter digits style - CSS rules separated and ended with a semicolon:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'digits_style' ); ?>"><?php _e( 'Counter digits style - CSS rules separated and ended with a semicolon:', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('digits_style'); ?>"
-		name="<?php echo $this->get_field_name('digits_style'); ?>"
-		type="text" value="<?php echo esc_attr($digits_style); ?>" />
+		id="<?php echo $this->get_field_id( 'digits_style' ); ?>"
+		name="<?php echo $this->get_field_name( 'digits_style' ); ?>"
+		type="text" value="<?php echo esc_attr( $digits_style ); ?>" />
 </p>
 <p>
-	<label for="<?php echo $this->get_field_id('labels_style'); ?>"><?php _e('Counter labels style - CSS rules separated and ended with a semicolon:', 'smart-countdown'); ?></label>
+	<label for="<?php echo $this->get_field_id( 'labels_style' ); ?>"><?php _e( 'Counter labels style - CSS rules separated and ended with a semicolon:', 'smart-countdown' ); ?></label>
 	<input class="widefat"
-		id="<?php echo $this->get_field_id('labels_style'); ?>"
-		name="<?php echo $this->get_field_name('labels_style'); ?>"
-		type="text" value="<?php echo esc_attr($labels_style); ?>" />
+		id="<?php echo $this->get_field_id( 'labels_style' ); ?>"
+		name="<?php echo $this->get_field_name( 'labels_style' ); ?>"
+		type="text" value="<?php echo esc_attr( $labels_style ); ?>" />
 </p>
 <?php
 	}
@@ -810,6 +826,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		
 		// By default we activate both countdown and count up without time limits
 		$atts['countdown_limit'] = $atts['countup_limit'] = -1;
+		$atts['countdown_to_end'] = 0;
 		
 		// check direct modes
 		if ( $atts['mode'] == 'countdown' ) {
@@ -818,6 +835,10 @@ class SmartCountdown_Widget extends WP_Widget {
 		} elseif ( $atts['mode'] == 'countup' ) {
 			// conunt up only
 			$atts['countdown_limit'] = 0;
+		} elseif( $atts['mode'] == 'countdown_to_end' ) {
+			// "contdown to end" mode
+			$atts['countup_limit'] = 0;
+			$atts['countdown_to_end'] = 1;
 		} else {
 			// fully-qualified limits. Must be written in format: mode="countdown:NNN,countup:MMM", where
 			// NNN = seconds to show countdown before event, MMM = seconds elapsed after event when count up
