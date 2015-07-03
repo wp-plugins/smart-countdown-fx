@@ -703,8 +703,11 @@ class SmartCountdown_Widget extends WP_Widget {
 				} else {
 					// for event import to work we need countup limit from request
 					$countup_limit = ( int ) $_REQUEST['countup_limit'];
+					$countdown_to_end = ( int ) $_REQUEST['countdown_to_end'];
 					$options['import_config'] = $import_config;
 					$options['countup_limit'] = $countup_limit;
+					$options['countdown_to_end'] = $countdown_to_end;
+					
 					$options = apply_filters( 'smartcountdownfx_get_event', $options, $now_ts );
 					if ( isset( $options['imported'] ) ) {
 						// at least one import plugin enabled

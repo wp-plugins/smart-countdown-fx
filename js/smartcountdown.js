@@ -1463,10 +1463,10 @@
 				unique : new Date().getTime() */
 			};
 			if(this.options.shortcode == 1) {
-				// shortcode - include deadline date and time and import_plugins in query
+				// shortcode - include required options in query
 				queryData.deadline = this.options.deadline;
 				queryData.import_config = this.options.import_config;
-				
+				queryData.countdown_to_end = this.options.countdown_to_end;
 				// we have to add countup limit from original settings to query data.
 				queryData.countup_limit = this.options.original_countup_limit;
 			} else {
