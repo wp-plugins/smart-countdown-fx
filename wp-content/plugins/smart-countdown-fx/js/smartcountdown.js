@@ -1,8 +1,8 @@
 (function($) {
-	const MILIS_IN_DAY = 86400000;
-	const MILIS_IN_HOUR = 3600000;
-	const MILIS_IN_MINUTE = 60000;
-	const MILIS_IN_SECOND = 1000;
+	const MILLIS_IN_DAY = 86400000;
+	const MILLIS_IN_HOUR = 3600000;
+	const MILLIS_IN_MINUTE = 60000;
+	const MILLIS_IN_SECOND = 1000;
 	
 	const SECONDS_IN_DAY = 86400;
 	const SECONDS_IN_HOUR = 3600;
@@ -12,13 +12,20 @@
 	const HOURS_IN_DAY = 24;
 	const MONTHS_IN_YEAR = 12;
 	
-	const MIN_SUSPEND_THRESHOLD = 500; // standard threshold
-	const SUSPEND_THRESHOLD_RELAX_STEP = 2000; // temporarly increment threshold by this value
-	const SUSPEND_THRESHOLD_RESTRICT_STEP = 250; // gradually decrease threshold by this value
+	const MIN_SUSPEND_THRESHOLD = 50; // standard threshold
+	const SUSPEND_THRESHOLD_RELAX_STEP = 100; // temporarly increment threshold by this value
+	const SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
 	
 	// global container for smart countdown objects
 	scds_container = {
-		timer : false,
+		timer : {
+			id : false,
+			now : false,
+			offset : false,
+			awake_detect : false,
+			suspend_threshold : MIN_SUSPEND_THRESHOLD,
+			acc_correction : 0
+		},
 		instances : {},
 		add : function(options) {
 			// scd_counter is a generic object. We have to use a fresh copy
@@ -32,10 +39,10 @@
 			working_copy.init(options);
 			
 			// create the tick timer if not created yet
-			if(this.timer === false) {
-				this.timer = window.setInterval(function() {
+			if(this.timer.id === false) {
+				this.timer.id = window.setTimeout(function() {
 					scds_container.fireAllCounters();
-				}, MILIS_IN_SECOND);
+				}, MILLIS_IN_SECOND);
 				// avoid massive resize events
 				$(window).resize(function() {
 					clearTimeout($.data(this, 'resizeTimer'));
@@ -44,6 +51,7 @@
 					}, 100));
 				});
 			}
+			
 		},
 		remove : function(id) {
 			delete(scds_container.instances[id]);
@@ -53,9 +61,63 @@
 			scds_container.responsiveAdjust();
 		},
 		fireAllCounters : function() {
+			var now = new Date().getTime();
+			if(this.timer.awake_detect === false) {
+				this.timer.awake_detect = now - MILLIS_IN_SECOND;
+			}
+			var elapsed = now - this.timer.awake_detect;
+			this.timer.awake_detect = now;
+			
+			var bias = elapsed - MILLIS_IN_SECOND, timeout = MILLIS_IN_SECOND;
+			if(Math.abs(bias) < 20) {
+				// we can correct small timer fluctuations simply
+				// adjusting next timeout
+				timeout = MILLIS_IN_SECOND - bias;
+				this.timer.acc_correction -= bias;
+			}
+			// programm next tick right away
+			this.timer.id = window.setTimeout(function() {
+				scds_container.fireAllCounters();
+			}, timeout)
+			
+			// update internal server now each tick
+			this.timer.now += MILLIS_IN_SECOND;
+
+			// keep track of accumulated correction
+			this.timer.acc_correction += (elapsed - MILLIS_IN_SECOND);
+
+			var correction = 0;
+			if(this.timer.acc_correction >= this.timer.suspend_threshold) {
+				correction = this.timer.acc_correction;
+				this.timer.acc_correction = 0;
+				this.timer.suspend_threshold += SUSPEND_THRESHOLD_RELAX_STEP;
+			
+				// we are in suspend/resume correction and have to refresh current
+				// system time stored in this.timer object
+				this.getServerTime(true);
+			} else if(this.timer.suspend_threshold > MIN_SUSPEND_THRESHOLD) {
+				this.timer.suspend_threshold -= SUSPEND_THRESHOLD_RESTRICT_STEP;
+			}
+			
 			$.each(this.instances, function() {
-				this.tick(true);
+				this.tick(true, correction);
 			});
+		},
+		setServerTime : function(ts) {
+			if(this.timer.offset === false) {
+				this.timer.offset = ts - new Date().getTime();
+				
+				// set internal now on init, later it will be updated on each
+				// timer tick, but we have to make it available before the
+				// timer is activated
+				this.timer.now = ts;
+			}
+		},
+		getServerTime : function(renew) {
+			if(renew) {
+				this.timer.now = new Date().getTime() + this.timer.offset;
+			}
+			return this.timer.now;
 		},
 		responsiveAdjust : function() {
 			$.each(this.instances, function(id, counter) {
@@ -69,7 +131,6 @@
 	
 	var scd_counter = {
 		options : {
-			now : null,
 			units : {
 				years : 1,
 				months : 1,
@@ -111,10 +172,6 @@
 		},
 		current_values : {},
 		elements : {},
-		awake_detect : 0,
-		acc_correction : 0,
-		SUSPEND_THRESHOLD : MIN_SUSPEND_THRESHOLD,
-		init_done : false,
 		
 		init : function(options) {
 			$.extend(true, this.options, options);
@@ -129,11 +186,11 @@
 			// during counter life to indicate the next query interval
 			this.options.original_countup_limit = this.options.countup_limit;
 			
-			this.SUSPEND_THRESHOLD = MIN_SUSPEND_THRESHOLD;
-			this.init_done = false;
-			this.acc_correction = 0;
-			
 			if(this.options.customize_preview == 1) {
+				/*
+				 * TODO! update with current server time, otherwise widget event time
+				 * is interpreted as UTC!!! $$$
+				 */
 				// Customize preview - get deadline from temporal instance
 				// or TODO: event import plugin ?
 				
@@ -144,64 +201,25 @@
 				 */
 				this.options.deadline = new Date(new Date(this.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
 				
-				// init awake detect timestamp
-				this.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
+				// current server time is passed in option when in shortcode mode
+				scds_container.setServerTime(this.options.now);
 				
-				this.updateCounter(this.getCounterValues(this.options.now));
+				this.updateCounter(this.getCounterValues());
 				scds_container.updateInstance(this.options.id, this);
 			} else {
 				// normal view - get next event from server
 				this.queryNextEvent(true);
 			}
 		},
-		tick : function(from_timer) {
+		tick : function(from_timer, correction) {
 			var delta = this.options.mode == 'up' ? 1 : -1;
 			
-			// Check if browser was suspended or js was paused
-			
-			// get time elapsed since last tick
-			var current = new Date().getTime();
-			var elapsed = current - this.awake_detect;
-			// Immediately update awake_detect value
-			this.awake_detect = current;
-			
-			// depending on init stage we have to handle accumulated corection
-			if(this.init_done) {
-				// normal flow, tick() was triggered from fireAllCounters() timer
-				// normally elapsed in a running counter will be very close to MILIS_IN_SECOND
-				// acc_correction will hold the deviance from this MILIS_IN_SECOND value.
-				// In case of suspend/resume event acc_correction can grow much bigger and 
-				// it will be used when counter value is adjusted.
-				// After adjustment we will reset acc_correction to 0
-				this.acc_correction = this.acc_correction + (elapsed - MILIS_IN_SECOND);
-			} else {
-				// very early tick in counter life cycle
-				if(from_timer) {
-					// this is a tick from timer, we have to set init_done flag, so that on
-					// next tick we can begin working with acc_correction
-					this.init_done = true;
-				}
-				// on early stage we get a tick right after the init tick - it is the first
-				// one triggered by fireAllCounters() timer. Usually is comes in approx. 250ms
-				// after the init tick but just in case we catch an abnormal delay here
-				this.acc_correction = elapsed >= MILIS_IN_SECOND ? (elapsed - MILIS_IN_SECOND) : 0;
-			}
-			
-			// At this point "acc_correction" should be around 0 for normal run
-			
-			if(this.acc_correction > this.SUSPEND_THRESHOLD) {
-				this.SUSPEND_THRESHOLD += SUSPEND_THRESHOLD_RELAX_STEP;
-				
-				// suspend-resume detected. Adjust timestamps by the time
-				// actually elapsed while suspended
-				this.options.now += (this.acc_correction + MILIS_IN_SECOND );
-				this.diff = this.diff + (this.acc_correction + MILIS_IN_SECOND ) * delta;
-				this.acc_correction = 0;
-				
-				if(this.options.mode == 'down' && this.diff <= 0) {
+			if(typeof correction !== 'undefined' && correction != 0) {
+				var diff = this.diff + (correction + MILLIS_IN_SECOND ) * delta;
+				if(this.options.mode == 'down' && diff <= 0) {
 					// deadline reached while suspended, change mode and send current
 					// adjusted coutup diff
-					this.deadlineReached(this.diff * -1);
+					this.deadlineReached(diff * -1);
 				} else {
 					// recalculate counter values
 					// when browser is resumed, values queue can contain
@@ -209,29 +227,19 @@
 					// parameter here (reserved)
 					this.softInitCounter(true);
 				}
-				// simplify animations on resume
-				this.initDisplay = true;
+				// on resume we do not set initDisplay because it incurres a significant
+				// workload on script (units visibility checks, etc.)
 				return;
-			} else if(this.SUSPEND_THRESHOLD > MIN_SUSPEND_THRESHOLD) {
-				this.SUSPEND_THRESHOLD -= SUSPEND_THRESHOLD_RESTRICT_STEP;
 			}
-			
-			/* check system and internal "now" (for localhost)
-			console.log('===== Tick recoded at ' + new Date().toString() + ' =====');
-			console.log('Internal now: ' + new Date(this.options.now).toString());
-			*/
-			
 			// check for counter mode limits every tick - we do it before incrementing
 			// diff, so we react to countup limit reached on time
 			this.applyCounterLimits();
 			
-			if(this.init_done) {
-				// normal run, modify timestamps by 1000 exactly, so that
-				// small timer fluctuations will not accumulate timing errors
-				this.diff += delta * MILIS_IN_SECOND;
-				this.options.now += MILIS_IN_SECOND;
+			// advance current diff
+			if(from_timer) {
+				this.diff += delta * MILLIS_IN_SECOND;
 			}
-
+			
 			// copy current values to new_values
 			var new_values = $.extend({},this.current_values);
 			
@@ -336,7 +344,7 @@
 			if(resumed) {
 				// additional actions on resume. Reserved ***
 			}
-			this.updateCounter(this.getCounterValues(this.options.now));
+			this.updateCounter(this.getCounterValues());
 		},
 		deadlineReached : function(new_diff) {
 			// test only!!!
@@ -346,7 +354,7 @@
 
 			this.options.mode = 'up';
 			this.diff = new_diff;
-			var new_values = this.getCounterValues(this.options.now);
+			var new_values = this.getCounterValues();
 			this.updateCounter(new_values);
 
 			// update units visibilty, new_diff may be far from zero if the
@@ -369,7 +377,9 @@
 		 * be requested from server - can be useful in case of short and repeated
 		 * suspend periods
 		 */
-		getCounterValues : function(now_ts) {
+		getCounterValues : function() {
+			var now_ts = scds_container.getServerTime();
+			
 			// init Date objects from this.options.deadline and now
 			var t, dateFrom, dateTo;
 			
@@ -435,10 +445,10 @@
 			// Set counter values according to display settigns
 			
 			// days-hours-seconds part of the interval
-			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILIS_IN_SECOND;
+			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILLIS_IN_SECOND;
 			
 			// get months part end date by subtracting days and time parts from target
-			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILIS_IN_DAY - timeSpan);
+			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILLIS_IN_DAY - timeSpan);
 			
 			// get months part of the diff interval
 			var startMonth = monthsEnd.getMonth() - monthsDiff;
@@ -450,7 +460,7 @@
 			var monthsSpan = monthsEnd.valueOf() - monthsStart.valueOf();
 			
 			// years part of the interval
-			var yearsSpan = this.diff - monthsSpan - daysDiff * MILIS_IN_DAY - timeSpan;
+			var yearsSpan = this.diff - monthsSpan - daysDiff * MILLIS_IN_DAY - timeSpan;
 			
 			// construct resulting values
 			var result = {
@@ -487,7 +497,7 @@
 				// no month display. We can rely on restDiff to calculate remainig
 				// days value (restDiff could be already adjusted due to year and/or
 				// month display settings
-				daysDiff = Math.floor(restDiff / MILIS_IN_DAY);
+				daysDiff = Math.floor(restDiff / MILLIS_IN_DAY);
 			}
 			// easy cases: starting from weeks unit and lower we can use simple
 			// division to calculate values. No days-in-month and leap years stuff.
@@ -496,26 +506,26 @@
 			if(this.options.units.weeks == 1) {
 				var weeksDif = Math.floor(daysDiff / 7); // entire weeks
 				daysDiff = daysDiff % 7; // days left
-				restDiff = restDiff - weeksDif * 7 * MILIS_IN_DAY;
+				restDiff = restDiff - weeksDif * 7 * MILLIS_IN_DAY;
 				result.weeks = weeksDif;
 			}
 			if(this.options.units.days == 1) {
-				result.days = Math.floor(restDiff / MILIS_IN_DAY);
-				restDiff = restDiff - daysDiff * MILIS_IN_DAY;
+				result.days = Math.floor(restDiff / MILLIS_IN_DAY);
+				restDiff = restDiff - daysDiff * MILLIS_IN_DAY;
 			}
 			if(this.options.units.hours == 1) {
-				result.hours = Math.floor(restDiff / MILIS_IN_HOUR);
-				restDiff = restDiff - result.hours * MILIS_IN_HOUR;
+				result.hours = Math.floor(restDiff / MILLIS_IN_HOUR);
+				restDiff = restDiff - result.hours * MILLIS_IN_HOUR;
 			}
 			if(this.options.units.minutes == 1) {
-				result.minutes = Math.floor(restDiff / MILIS_IN_MINUTE);
-				restDiff = restDiff - result.minutes * MILIS_IN_MINUTE;
+				result.minutes = Math.floor(restDiff / MILLIS_IN_MINUTE);
+				restDiff = restDiff - result.minutes * MILLIS_IN_MINUTE;
 			}
 			// always include seconds in result. Even if seconds are not displayed on
 			// screen according to widget configuration, they will be rendered as hidden.
 			// Also seconds must be there for the "easy inc/dec" method to work -
 			// performance optimization to avoid heavy calculations in tick() method
-			result.seconds = Math.floor(restDiff / MILIS_IN_SECOND);
+			result.seconds = Math.floor(restDiff / MILLIS_IN_SECOND);
 			
 			// set overflow limits
 			if(this.options.units.minutes == 1) {
@@ -1042,6 +1052,8 @@
 			this.setRowVerticalAlign();
 			this.responsiveAdjust();
 			
+			//$('#' + this.options.id + ' .scd-unit-vert').css('display', 'block');
+			
 			var counter_container = $('#' + this.options.id);
 			
 			/* *** a sort of a panic action - no counter units are displayed, we have to hide the whole widget*/
@@ -1088,19 +1100,14 @@
 			
 			// show widget before/after event limits
 			if(this.options.mode == 'down') {
-				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILIS_IN_SECOND) {
+				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILLIS_IN_SECOND) {
 					counter_container.hide();
 				} else {
 					counter_container.show();
 				}
 			}
 			if(this.options.mode == 'up') {
-				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILIS_IN_SECOND) {
-					/*
-					console.log('Current diff: ' + this.diff);
-					console.log('Up limit: ' + this.options.countup_limit);
-					console.log('Internal now: ' + new Date(this.options.now).toString());
-					*/
+				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILLIS_IN_SECOND) {
 					this.queryNextEvent();
 					
 					// disable countup limit temporarly, so that no more queryNextEvent() are
@@ -1335,8 +1342,6 @@
 				});
 				
 				// we have suggested scale at this point
-				//console.log('Scale: ' + scale);
-
 				// Look at scale alternative layouts in responsive settings
 				
 				// IMPORTANT: scale nodes must be sorted ascending, otherwise responsive behavior will be
@@ -1405,6 +1410,9 @@
 			}
 			// update layout for new base font size
 			this.setRowVerticalAlign();
+			
+			// inline-block display was required for units measurement. We have to remove it for vertical units
+			counter_container.find('.scd-unit-vert:visible').css('display', '');
 		},
 		
 		checkWrapping : function(units) {
@@ -1479,17 +1487,12 @@
 							// Actually we have "self" object already initialized and
 							// setup with options (for both widget and shorcode modes)
 							
-							// we have to add actual "now" and "deadline" here, it
+							// we have to add actual "deadline" here, it
 							// should work for plain counters (caching workaround) and
 							// also for events import plugins
 							
 							self.options.deadline = response.options.deadline;
-							self.options.now = response.options.now;
-							/*
-							console.log('Server now: ' + new Date(self.options.now).toString());
-							console.log('deadline: ' + self.options.deadline);
-							console.log('System now: ' + new Date().toString());
-							*/
+							
 							// we append imported event title (if any) to counter titles
 							// or insert imported title if a placeholder found in original
 							if(typeof response.options.imported_title !== 'undefined') {
@@ -1548,9 +1551,8 @@
 							// convert deadline to javascript Date
 							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0*/).toString();
 
-							// init awake detect timestamp
-							self.awake_detect = new Date().getTime() - MILIS_IN_SECOND;
-							self.updateCounter(self.getCounterValues(self.options.now));
+							scds_container.setServerTime(response.options.now);
+							self.updateCounter(self.getCounterValues());
 							
 							// widget registration in container is
 							// required only for the first event query, switching
