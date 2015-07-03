@@ -543,6 +543,18 @@
 				this.options.limits.minutes = MINUTES_IN_DAY;
 			}
 			
+			// we have to check here if visible units count cound change, if so we
+			// set initDisplay flag, so that on display the widget layout will be checked
+			// (this is important for suspend/resume cases - now we do not force initDisplay
+			// on each resume - for the sake of performance, but we are aware of the fact
+			// that if device is suspended for a long time, visible units count can change)
+			for(asset in this.current_values) {
+				if(asset != 'seconds' && !this.current_values[asset] != !result[asset]) {
+					this.initDisplay = true;
+					break;
+				}
+			}
+			
 			return result;
 			
 			// Helper functions
@@ -590,7 +602,7 @@
 				}
 				// only update on init or if the value actually changed
 				if(self.updateCounterUnit(asset, prev[asset], next[asset], self.initDisplay) === true) {
-					// if number of digits displayed has change for a counter unit,
+					// if number of digits displayed has changed for a counter unit,
 					// updateCounterUnit() will return true
 					updateUnitsWidth = true;
 				}
@@ -611,10 +623,6 @@
 			this.initDisplay = false;
 			
 			this.current_values = new_values;
-			
-			// moved to tick itself
-			// check for counter mode limits every tick
-			//this.applyCounterLimits();
 		},
 		displayTexts : function() {
 			if(this.options.mode == 'up') {
