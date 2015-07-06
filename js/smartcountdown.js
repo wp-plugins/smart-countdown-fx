@@ -1,23 +1,31 @@
 (function($) {
-	
-	const MILIS_IN_DAY = 86400000;
-	const MILIS_IN_HOUR = 3600000;
-	const MILIS_IN_MINUTE = 60000;
-	const MILIS_IN_SECOND = 1000;
+	const MILLIS_IN_DAY = 86400000;
+	const MILLIS_IN_HOUR = 3600000;
+	const MILLIS_IN_MINUTE = 60000;
+	const MILLIS_IN_SECOND = 1000;
 	
 	const SECONDS_IN_DAY = 86400;
 	const SECONDS_IN_HOUR = 3600;
 	const SECONDS_IN_MINUTE = 60;
 	const MINUTES_IN_DAY = SECONDS_IN_DAY / 60;
 	const MINUTES_IN_HOUR = 60;
-	
 	const HOURS_IN_DAY = 24;
-	
 	const MONTHS_IN_YEAR = 12;
+	
+	const MIN_SUSPEND_THRESHOLD = 50; // standard threshold
+	const SUSPEND_THRESHOLD_RELAX_STEP = 100; // temporarly increment threshold by this value
+	const SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
 	
 	// global container for smart countdown objects
 	scds_container = {
-		timer : false,
+		timer : {
+			id : false,
+			now : false,
+			offset : false,
+			awake_detect : false,
+			suspend_threshold : MIN_SUSPEND_THRESHOLD,
+			acc_correction : 0
+		},
 		instances : {},
 		add : function(options) {
 			// scd_counter is a generic object. We have to use a fresh copy
@@ -25,31 +33,91 @@
 			// always intact.
 			var working_copy = $.extend(true, {}, scd_counter);
 			
-			//var self = this;
-			$(window).resize(function() {
-				scds_container.responsiveAdjust();
-			});
-			
 			// call init method. Depending on the counter type - widget or
 			// embedded with a shortcode, the recently created counter will
 			// be added to scds_container after it's setup is complete
-			working_copy.init(options, this.updateInstance);
+			working_copy.init(options);
 			
 			// create the tick timer if not created yet
-			if(this.timer === false) {
-				this.timer = window.setInterval(function() {
+			if(this.timer.id === false) {
+				this.timer.id = window.setTimeout(function() {
 					scds_container.fireAllCounters();
-				}, MILIS_IN_SECOND);
+				}, MILLIS_IN_SECOND);
+				// avoid massive resize events
+				$(window).resize(function() {
+					clearTimeout($.data(this, 'resizeTimer'));
+					$.data(this, 'resizeTimer', setTimeout(function() {
+						scds_container.responsiveAdjust();
+					}, 100));
+				});
 			}
+			
+		},
+		remove : function(id) {
+			delete(scds_container.instances[id]);
 		},
 		updateInstance : function(id, instance) {
 			scds_container.instances[id] = instance;
 			scds_container.responsiveAdjust();
 		},
 		fireAllCounters : function() {
+			var now = new Date().getTime();
+			if(this.timer.awake_detect === false) {
+				this.timer.awake_detect = now - MILLIS_IN_SECOND;
+			}
+			var elapsed = now - this.timer.awake_detect;
+			this.timer.awake_detect = now;
+			
+			var bias = elapsed - MILLIS_IN_SECOND, timeout = MILLIS_IN_SECOND;
+			if(Math.abs(bias) < 20) {
+				// we can correct small timer fluctuations simply
+				// adjusting next timeout
+				timeout = MILLIS_IN_SECOND - bias;
+				this.timer.acc_correction -= bias;
+			}
+			// programm next tick right away
+			this.timer.id = window.setTimeout(function() {
+				scds_container.fireAllCounters();
+			}, timeout)
+			
+			// update internal server now each tick
+			this.timer.now += MILLIS_IN_SECOND;
+
+			// keep track of accumulated correction
+			this.timer.acc_correction += (elapsed - MILLIS_IN_SECOND);
+
+			var correction = 0;
+			if(this.timer.acc_correction >= this.timer.suspend_threshold) {
+				correction = this.timer.acc_correction;
+				this.timer.acc_correction = 0;
+				this.timer.suspend_threshold += SUSPEND_THRESHOLD_RELAX_STEP;
+			
+				// we are in suspend/resume correction and have to refresh current
+				// system time stored in this.timer object
+				this.getServerTime(true);
+			} else if(this.timer.suspend_threshold > MIN_SUSPEND_THRESHOLD) {
+				this.timer.suspend_threshold -= SUSPEND_THRESHOLD_RESTRICT_STEP;
+			}
+			
 			$.each(this.instances, function() {
-				this.tick();
+				this.tick(true, correction);
 			});
+		},
+		setServerTime : function(ts) {
+			if(this.timer.offset === false) {
+				this.timer.offset = ts - new Date().getTime();
+				
+				// set internal now on init, later it will be updated on each
+				// timer tick, but we have to make it available before the
+				// timer is activated
+				this.timer.now = ts;
+			}
+		},
+		getServerTime : function(renew) {
+			if(renew) {
+				this.timer.now = new Date().getTime() + this.timer.offset;
+			}
+			return this.timer.now;
 		},
 		responsiveAdjust : function() {
 			$.each(this.instances, function(id, counter) {
@@ -63,7 +131,6 @@
 	
 	var scd_counter = {
 		options : {
-			now : null,
 			units : {
 				years : 1,
 				months : 1,
@@ -99,71 +166,80 @@
 			hide_countup_counter : 0,
 			shortcode : 0,
 			redirect_url : '',
-			click_url : ''
+			click_url : '',
+			import_config : '',
+			base_font_size : 12
 		},
 		current_values : {},
 		elements : {},
-		init : function(options, callback) {
+		
+		init : function(options) {
 			$.extend(true, this.options, options);
 			
+			// backup original event titles - we'll need them later
+			// for appending imported event titles
+			this.options.original_title_before_down = this.options.title_before_down;
+			this.options.original_title_before_up = this.options.title_before_up;
+			
+			// backup countup limit from shortcode or widget settings. We will need this
+			// value when requesting next event. this.options.countup_limit will change
+			// during counter life to indicate the next query interval
+			this.options.original_countup_limit = this.options.countup_limit;
+			
 			if(this.options.customize_preview == 1) {
+				/*
+				 * TODO! update with current server time, otherwise widget event time
+				 * is interpreted as UTC!!! $$$
+				 */
 				// Customize preview - get deadline from temporal instance
+				// or TODO: event import plugin ?
+				
+				/* Actually we have a full-featured temporal instance here (this.options), 
+				 * so we could implement a real preview using queryNextEvent() with some
+				 * additional params (?) - we have to block widget SQL query by ID, because
+				 * it will provide main instance settings, not the temporal one... $$$
+				 */
 				this.options.deadline = new Date(new Date(this.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
 				
-				this.updateCounter(this.getCounterValues(this.options.now));
+				// current server time is passed in option when in shortcode mode
+				scds_container.setServerTime(this.options.now);
 				
-				// callback to widget registration in container is
-				// required only for the first event query, switching
-				// to next event in a running widget doesn't require
-				// adding widget to container because it is already there
-				if(typeof callback === "function") {
-					callback(this.getId(), this);
-				}
-				
-				// init awake detect timestamp
-				this.awake_detect = new Date().getTime();
+				this.updateCounter(this.getCounterValues());
+				scds_container.updateInstance(this.options.id, this);
 			} else {
 				// normal view - get next event from server
-				this.queryNextEvent(callback);
+				this.queryNextEvent(true);
 			}
 		},
-		getId : function() {
-			return this.options.id || 0;
-		},
-		tick : function() {
+		tick : function(from_timer, correction) {
 			var delta = this.options.mode == 'up' ? 1 : -1;
 			
-			// Check if browser was suspended or js was paused
-			var current = new Date().getTime();
-			var elapsed = current - this.awake_detect;
-			// Immediately update awake_detect value
-			this.awake_detect = current;
-			
-			if(elapsed > 1050) {
-				// suspend-resume detected. Adjust timestamps by the time
-				// actually elapsed while suspended
-				this.options.now += elapsed;
-				this.diff = this.diff + elapsed * delta;
-				
-				if(this.options.mode == 'down' && this.diff <= 0) {
-					this.deadlineReached(this.diff * -1);
+			if(typeof correction !== 'undefined' && correction != 0) {
+				var diff = this.diff + (correction + MILLIS_IN_SECOND ) * delta;
+				if(this.options.mode == 'down' && diff <= 0) {
+					// deadline reached while suspended, change mode and send current
+					// adjusted coutup diff
+					this.deadlineReached(diff * -1);
 				} else {
 					// recalculate counter values
 					// when browser is resumed, values queue can contain
 					// values which are not sequential. We pass "resumed"
-					// parameter here to indicate that counter units
-					// visibility has to be checked during at least 4 tick
-					// cycles (so that entire queue is checked)
+					// parameter here (reserved)
 					this.softInitCounter(true);
 				}
+				// on resume we do not set initDisplay because it incurres a significant
+				// workload on script (units visibility checks, etc.)
 				return;
 			}
+			// check for counter mode limits every tick - we do it before incrementing
+			// diff, so we react to countup limit reached on time
+			this.applyCounterLimits();
 			
-			// normal run, modify timestamps by 1000 exactly, so that
-			// small timer fluctuations will not accumulate timing errors
-			this.diff += delta * MILIS_IN_SECOND;
-			this.options.now += MILIS_IN_SECOND;
-
+			// advance current diff
+			if(from_timer) {
+				this.diff += delta * MILLIS_IN_SECOND;
+			}
+			
 			// copy current values to new_values
 			var new_values = $.extend({},this.current_values);
 			
@@ -268,7 +344,7 @@
 			if(resumed) {
 				// additional actions on resume. Reserved ***
 			}
-			this.updateCounter(this.getCounterValues(this.options.now));
+			this.updateCounter(this.getCounterValues());
 		},
 		deadlineReached : function(new_diff) {
 			// test only!!!
@@ -278,8 +354,12 @@
 
 			this.options.mode = 'up';
 			this.diff = new_diff;
-			new_values = this.getCounterValues(this.options.now);
+			var new_values = this.getCounterValues();
 			this.updateCounter(new_values);
+
+			// update units visibilty, new_diff may be far from zero if the
+			// deadline was reached while suspended, so we must counter
+			// visibility here
 			this.setCounterUnitsVisibility(new_values);
 			
 			// redirect if set so in options
@@ -297,7 +377,9 @@
 		 * be requested from server - can be useful in case of short and repeated
 		 * suspend periods
 		 */
-		getCounterValues : function(now_ts) {
+		getCounterValues : function() {
+			var now_ts = scds_container.getServerTime();
+			
 			// init Date objects from this.options.deadline and now
 			var t, dateFrom, dateTo;
 			
@@ -363,10 +445,10 @@
 			// Set counter values according to display settigns
 			
 			// days-hours-seconds part of the interval
-			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILIS_IN_SECOND;
+			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILLIS_IN_SECOND;
 			
 			// get months part end date by subtracting days and time parts from target
-			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILIS_IN_DAY - timeSpan);
+			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILLIS_IN_DAY - timeSpan);
 			
 			// get months part of the diff interval
 			var startMonth = monthsEnd.getMonth() - monthsDiff;
@@ -378,7 +460,7 @@
 			var monthsSpan = monthsEnd.valueOf() - monthsStart.valueOf();
 			
 			// years part of the interval
-			var yearsSpan = this.diff - monthsSpan - daysDiff * MILIS_IN_DAY - timeSpan;
+			var yearsSpan = this.diff - monthsSpan - daysDiff * MILLIS_IN_DAY - timeSpan;
 			
 			// construct resulting values
 			var result = {
@@ -415,7 +497,7 @@
 				// no month display. We can rely on restDiff to calculate remainig
 				// days value (restDiff could be already adjusted due to year and/or
 				// month display settings
-				daysDiff = Math.floor(restDiff / MILIS_IN_DAY);
+				daysDiff = Math.floor(restDiff / MILLIS_IN_DAY);
 			}
 			// easy cases: starting from weeks unit and lower we can use simple
 			// division to calculate values. No days-in-month and leap years stuff.
@@ -424,26 +506,26 @@
 			if(this.options.units.weeks == 1) {
 				var weeksDif = Math.floor(daysDiff / 7); // entire weeks
 				daysDiff = daysDiff % 7; // days left
-				restDiff = restDiff - weeksDif * 7 * MILIS_IN_DAY;
+				restDiff = restDiff - weeksDif * 7 * MILLIS_IN_DAY;
 				result.weeks = weeksDif;
 			}
 			if(this.options.units.days == 1) {
-				result.days = Math.floor(restDiff / MILIS_IN_DAY);
-				restDiff = restDiff - daysDiff * MILIS_IN_DAY;
+				result.days = Math.floor(restDiff / MILLIS_IN_DAY);
+				restDiff = restDiff - daysDiff * MILLIS_IN_DAY;
 			}
 			if(this.options.units.hours == 1) {
-				result.hours = Math.floor(restDiff / MILIS_IN_HOUR);
-				restDiff = restDiff - result.hours * MILIS_IN_HOUR;
+				result.hours = Math.floor(restDiff / MILLIS_IN_HOUR);
+				restDiff = restDiff - result.hours * MILLIS_IN_HOUR;
 			}
 			if(this.options.units.minutes == 1) {
-				result.minutes = Math.floor(restDiff / MILIS_IN_MINUTE);
-				restDiff = restDiff - result.minutes * MILIS_IN_MINUTE;
+				result.minutes = Math.floor(restDiff / MILLIS_IN_MINUTE);
+				restDiff = restDiff - result.minutes * MILLIS_IN_MINUTE;
 			}
 			// always include seconds in result. Even if seconds are not displayed on
 			// screen according to widget configuration, they will be rendered as hidden.
 			// Also seconds must be there for the "easy inc/dec" method to work -
 			// performance optimization to avoid heavy calculations in tick() method
-			result.seconds = Math.floor(restDiff / MILIS_IN_SECOND);
+			result.seconds = Math.floor(restDiff / MILLIS_IN_SECOND);
 			
 			// set overflow limits
 			if(this.options.units.minutes == 1) {
@@ -459,6 +541,18 @@
 				this.options.limits.minutes = MINUTES_IN_HOUR;
 			} else {
 				this.options.limits.minutes = MINUTES_IN_DAY;
+			}
+			
+			// we have to check here if visible units count cound change, if so we
+			// set initDisplay flag, so that on display the widget layout will be checked
+			// (this is important for suspend/resume cases - now we do not force initDisplay
+			// on each resume - for the sake of performance, but we are aware of the fact
+			// that if device is suspended for a long time, visible units count can change)
+			for(asset in this.current_values) {
+				if(asset != 'seconds' && !this.current_values[asset] != !result[asset]) {
+					this.initDisplay = true;
+					break;
+				}
 			}
 			
 			return result;
@@ -488,7 +582,6 @@
 			// e.g. texts are dirty
 		},
 		display : function(new_values) {
-			
 			var prev, next;
 			if(typeof this.current_values.seconds === 'undefined') {
 				// first hard init case. Make this logic better!!! ***
@@ -499,7 +592,6 @@
 			} else {
 				prev = this.current_values;
 			}
-			
 			next = new_values;
 			
 			// Update counter output
@@ -510,7 +602,7 @@
 				}
 				// only update on init or if the value actually changed
 				if(self.updateCounterUnit(asset, prev[asset], next[asset], self.initDisplay) === true) {
-					// if number of digits displayed has change for a counter unit,
+					// if number of digits displayed has changed for a counter unit,
 					// updateCounterUnit() will return true
 					updateUnitsWidth = true;
 				}
@@ -519,6 +611,7 @@
 			// Update digits width if required
 			if(updateUnitsWidth) {
 				this.setRowVerticalAlign();
+				this.responsiveAdjust();
 			}
 			
 			if(this.initDisplay ||
@@ -533,11 +626,11 @@
 		},
 		displayTexts : function() {
 			if(this.options.mode == 'up') {
-				$('#' + this.getId() + '-title-before').html(this.options.title_before_up);
-				$('#' + this.getId() + '-title-after').html(this.options.title_after_up);
+				$('#' + this.options.id + '-title-before').html(this.options.title_before_up);
+				$('#' + this.options.id + '-title-after').html(this.options.title_after_up);
 			} else {
-				$('#' + this.getId() + '-title-before').html(this.options.title_before_down);
-				$('#' + this.getId() + '-title-after').html(this.options.title_after_down);
+				$('#' + this.options.id + '-title-before').html(this.options.title_before_down);
+				$('#' + this.options.id + '-title-after').html(this.options.title_after_down);
 			}
 		},
 		/**
@@ -783,11 +876,6 @@
 				
 				$el = this.elements[prefix][this.getElementHash(el)];
 				
-				// overload standard style with twins-from and apply
-				// Now we do in on server, no need to repeat same action every second...
-				//styles = $.extend(el.styles, el.tweens.from);
-				// $el.css(styles);
-				
 				// apply tween.from styles
 				$el.css(el.tweens.from);
 				
@@ -802,7 +890,8 @@
 				// We are sure that at least 1 element qualified for animation was found in the group
 				group_processed = true;
 				
-				if(el.tweens.to.length === 0) { // objects have length undefined, so only empty array will pass this condition
+				if(el.tweens.to.length === 0) { // objects have length undefined, so only empty array
+					// will pass this condition
 					// if tweens are empty we have to simulate animation duration. Of course,
 					// it is possible to use a "trivial" tween hack, e.g. <width>100,100</width>,
 					// but using native setTimeout() shoud be better.
@@ -819,17 +908,29 @@
 					} else {
 						cur_element_index++;
 						if(cur_element_index >= elements_count) {
-							self.animateGroup(values, group_index + 1, prefix, groups);
+							this.animateGroup(values, group_index + 1, prefix, groups);
 						}
 					}
 				} else {
-					// we have tweens defined. Proceed with animation
-					$el.animate(el.tweens.to, duration, transition, function() {
+					// we have tweens defined. Proceed with animation. Do not animate
+					// elements that are currently being animated - prevent
+					// animations mess up on tab switch back and resume in some
+					// browsers
+					if($el.is(':animated')) {
+						// decrement elements-left count
 						cur_element_index++;
 						if(cur_element_index >= elements_count) {
-							self.animateGroup(values, group_index + 1, prefix, groups);
+							this.animateGroup(values, group_index + 1, prefix, groups);
 						}
-					});
+					} else {
+						// actually start animation
+						$el.animate(el.tweens.to, duration, transition, function() {
+							cur_element_index++;
+							if(cur_element_index >= elements_count) {
+								self.animateGroup(values, group_index + 1, prefix, groups);
+							}
+						});
+					}
 				}
 			}
 			
@@ -943,42 +1044,28 @@
 				}
 			}
 			
-			// show widget before/after event limits
-			var counter_container = $('#' + this.options.id);
-			if(this.options.mode == 'down') {
-				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILIS_IN_SECOND) {
-					counter_container.hide();
-				} else {
-					counter_container.show();
-				}
-			}
-			if(this.options.mode == 'up') {
-				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILIS_IN_SECOND) {
-					counter_container.hide();
-					if(this.options.shortcode != 1) {
-						// at the moment we do not support message queue for
-						// shorcode widgets but later we find a way to implement it:
-						// - reference external plugin in shortcode
-						// - reference a real widget created with "reserved for
-						// shortcode" flag and not displayed in the sidebar
-					}
-				} else {
-					counter_container.show();
-				}
-			}
-			
 			// apply calculated hide_units configuration
 			var self = this;
 			$.each(this.options.units, function(asset, display) {
 				var unit_wrapper = $('#' + self.options.id + '-' + asset);
 				if(display == 1 && $.inArray(asset, hide_units) == -1) {
 					unit_wrapper.show();
+					// *** we have added inline-block to counter container,
+					// so we can horizontally center widget elements, get unit
+					// float for horz layout (mesurement requirement) without
+					// "inline-block" display on units. Left float was also
+					// added to horizontal units class.
+					// we have to display units as inline-block
+					//unit_wrapper.css('display', 'inline-block');
 				} else {
 					unit_wrapper.hide();
 				}
 			});
 			
-			this.setLabelsPosition();
+			this.setRowVerticalAlign();
+			this.responsiveAdjust();
+			
+			var counter_container = $('#' + this.options.id);
 			
 			/* *** a sort of a panic action - no counter units are displayed, we have to hide the whole widget*/
 			if(hide_units.length < 7) {
@@ -990,7 +1077,6 @@
 			
 			// For count up mode we implement an option to completely hide
 			// counter digits block after the event time is reached
-			// *** this logic is not checked!!!
 			if(this.options.mode == 'up') {
 				if(this.options.hide_countup_counter == 1) {
 					counter_container.find('.scd-counter').hide();
@@ -998,11 +1084,16 @@
 				} else {
 					counter_container.find('.scd-counter').show();
 				}
+			} else {
+				// in "down" mode we always show counter block. The whole
+				// widget will be hidden if required in applyCounterLimits()
+				counter_container.find('.scd-counter').show();
 			}
 			
 			// if the counter is clickable, set the handler
 			if(this.options.click_url != '') {
 				counter_container.css('cursor', 'pointer');
+				counter_container.off('click');
 				counter_container.on('click', function() {
 					window.location = self.options.click_url;
 				});
@@ -1010,11 +1101,54 @@
 				counter_container.css('cursor', 'default');
 				counter_container.off('click');
 			}
+			
+			// add quick check for counter display mode limits
+			this.applyCounterLimits();
 		},
 		
+		applyCounterLimits : function() {
+			var counter_container = $('#' + this.options.id);
+			
+			// show widget before/after event limits
+			if(this.options.mode == 'down') {
+				if(this.options.countdown_limit >= 0 && this.diff >= this.options.countdown_limit * MILLIS_IN_SECOND) {
+					counter_container.hide();
+				} else {
+					counter_container.show();
+				}
+			}
+			if(this.options.mode == 'up') {
+				if(this.options.countup_limit >= 0 && this.diff >= this.options.countup_limit * MILLIS_IN_SECOND) {
+					this.queryNextEvent();
+					
+					// disable countup limit temporarly, so that no more queryNextEvent() are
+					// done. Correct countup limit will be set when the event request is done.
+					// *** we do countup limit reset after calling queryNextEvent(), so that
+					// actual limit value can be used inside queryNextEvent() method. Anyway,
+					// resetting countup limit here will guarantee that no more queries will
+					// be done while current one is in progress
+					this.options.countup_limit = -1;
+				}
+			}
+		},
+		
+		/*
+		 * TODO: check if we can optimize calls to this method. For now it is called twice
+		 * in some cases. This is not a big problem - the function is quite fast and at most
+		 * called each minute, but for the sake of code cleanness...
+		 */
 		setRowVerticalAlign : function() {
+			// calculate labels maximum width(s) for all singular/plural forms
+			if(typeof this.label_min_widths === 'undefined') {
+				// widths are calculated in em, so it has to be done only once
+				if(this.updateMinLabelsWidth() === false) {
+					// updateMinLabelsWidth failed, e.g. no visible labels - do nothing
+					return;
+				}
+			}
+			
 			// align digits - for counter column layout only
-			var digits = $('.scd-unit-vert .scd-digits-row:visible');
+			var digits = $('#' + this.options.id + ' .scd-unit-vert .scd-digits-row:visible');
 			if(digits.length > 0) {
 				var maxWidth = 0, width;
 				digits.css('min-width', '');
@@ -1026,150 +1160,329 @@
 				});
 				digits.css('min-width', maxWidth);
 			}
-			// align labels
-			// here we rely on maximum width of visible labels
-			// if at the moment of measurement the longest plural/singular
-			// form is not dipslayed, the calculation below may give wrong results
-			// *** TODO: of course we can call this every second... find a better solution!
-			// We can simply not allow "left" labels position - no need for the code below
-			// ALTERNATIVES: get maximum labels width on init, set min-width for lables in styles -
-			// Also important for horizontal counter layout! *** for now we only check vertical
-			// layout
-			var labels = $('.scd-unit-vert .scd-label-row:visible');
+			
+			// Labels min-widths are expressed in 'em'.
+			
+			// all row labels for vertical counter layout must have the same min-width =
+			// maximum width of all labels/all forms
+			var labels = $('#' + this.options.id + ' .scd-unit-vert .scd-label-row:visible');
+			labels.css('min-width', this.labels_max_width + 'em');
+			
+			// for horizontal counter layout we set:
+			// - column labels: to maximum width of all labels/all forms
+			// - row labels: to maximum width of all forms for this label only
+			labels = $('#' + this.options.id + ' .scd-unit-horz .scd-label:visible');
 			if(labels.length > 0) {
-				var maxWidth = 0, width;
-				labels.css('min-width', '');
+				var self = this;
 				labels.each(function() {
-					width = $(this).width();
-					if(width > maxWidth) {
-						maxWidth = width;
+					var $this = $(this);
+					width = $this.width();
+					if($this.hasClass('scd-label-col')) {
+						// same width for all
+						$this.css('min-width', self.labels_max_width + 'em');
+					} else {
+						// maximum width for this label (singular/plural forms)
+						$this.css('min-width', self.label_min_widths[$this.attr('id')] + 'em');
 					}
 				});
-				labels.css('min-width', maxWidth);
 			}
+			this.setLabelsPosition();
+		},
+		
+		updateMinLabelsWidth : function() {
+			// use the fisrt visible label as test element for measuring. This method is called only once per
+			// script life-time and on early stage, so we can rely on visible pseudo-selector: counter visibilty
+			// is not updated yet, so all labels are visible. This can be a design flaw if program logic changes
+			var test_label = $('#' + this.options.id + ' .scd-label:visible').first(), unit, label_id, width, max_width = 0;
+			if(test_label.length == 0) {
+				// panic
+				return false;
+			}
+			// backup existing text
+			var the_text = test_label.text();
+			// reset measurement
+			test_label.css('min-width', '');
+			this.label_min_widths = {};
+			// loop through all label strings injected in js script
+			for(label_key in smartcountdownstrings) {
+				// get unit name for object key
+				unit = label_key.split('_', 1)[0];
+				if(!unit) {
+					unit = label_key;
+				}
+				// constuct label id - it will be used as label_min_widths key and for fast
+				// access to label attributes
+				label_id = this.options.id + '-' + unit + '-label';
+				
+				if(typeof this.label_min_widths[label_id] === 'undefined') {
+					// on first iteration initialize the value
+					this.label_min_widths[label_id] = 0;
+				}
+				// set test label text
+				test_label.text(smartcountdownstrings[label_key]);
+				// do the measurement in 'em' based on labels size
+				width = test_label.width() / this.options.labels_size;
+				// update unit maximum
+				if(this.label_min_widths[label_id] < width) {
+					this.label_min_widths[label_id] = width;
+				}
+				// keep track of the maximum-for-all width
+				if(max_width < width) {
+					max_width = width;
+				}
+				// all widths are expressed in em, but stored as float numbers -
+				// make sure we append 'em' to these values when applying as css
+			}
+			// store maximum-for-all width
+			this.labels_max_width = max_width;
+			// clean up - restore original text of the test label
+			test_label.text(the_text);
 		},
 		
 		// update labels vertical position for left or right labels placement
 		setLabelsPosition : function() {
+			// reset position for column lables
+			$('#' + this.options.id + ' .scd-label-col:visible').css('position', '');
+			
 			// adjust labels position if neeed (if vertical label position is set)
-			var labels = $('.scd-label-row:visible');
+			var labels = $('#' + this.options.id + ' .scd-label-row:visible');
 			if(labels.length > 0) {
 				var digitsDiv, digitsHeight, labelHeight, top, self = this;
-				//labels.css('height', '');
 				labels.each(function() {
-					digitsDiv = $(this).siblings('.scd-digits-row');
+					var $this = $(this);
+					digitsDiv = $this.siblings('.scd-digits-row');
 					digitsHeight = digitsDiv.height();
-					labelHeight = $(this).height();
-					$(this).css('position', 'relative');
-					switch(self.options.labels_vert_align) {
-					case 'top' :
-						top = 0;
-						break;
-					case 'bottom' :
-						top = digitsHeight - labelHeight;
-						break;
-					case 'high' :
-						top = labelHeight * 0.5;
-						break;
-					case 'low' :
-						top = digitsHeight - labelHeight * 1.5;
-						break;
-					case 'superscript' :
-						top = labelHeight * -0.5;
-						break;
-					case 'subscript' :
-						top = digitsHeight - labelHeight / 2;
-						break;
-					default:
-						top = digitsHeight / 2 - labelHeight / 2;
+					labelHeight = $this.height();
+					
+					// check if digits and label are horizontally overlapping
+					var a = digitsDiv[0].getBoundingClientRect();
+					var b = this.getBoundingClientRect();
+					if(!( // we allow adjacent divs
+							b.left > a.right ||
+							b.right < a.left ||
+							b.top > a.bottom ||
+							b.bottom < a.top
+					)) {
+						$this.css('position', '');
+						$this.css('top', '');
+						return true; // continue iteration
 					}
-					$(this).css('top', top);
+					// continue with position (normal flow)
+					$this.css('position', 'relative');
+					switch(self.options.labels_vert_align) {
+						case 'top' :
+							top = 0;
+							break;
+						case 'bottom' :
+							top = digitsHeight - labelHeight;
+							break;
+						case 'high' :
+							top = labelHeight * 0.5;
+							break;
+						case 'low' :
+							top = digitsHeight - labelHeight * 1.5;
+							break;
+						case 'superscript' :
+							top = labelHeight * -0.5;
+							break;
+						case 'subscript' :
+							top = digitsHeight - labelHeight / 2;
+							break;
+						default:
+							top = digitsHeight / 2 - labelHeight / 2;
+					}
+					$this.css('top', top);
 				});
 			}
 		},
 		
 		resetAlignments : function(counter_container) {
-			counter_container.find('.scd-label').css({position : '', top : ''});
+			counter_container.find('.scd-label').css({ position : '', top : '' });
 			counter_container.find('.scd-label, .scd-digits').css('min-width', '');
 		},
 		
-		responsiveAdjust : function(width) {
+		responsiveAdjust : function(/*width*/) {
 			var responsive = this.options.responsive;
-			if(!responsive || responsive.length == 0) {
-				return;
-			}	
-			var counter_container = $('#' + this.options.id), i, size_preset, adjusted = false;
+			var counter_container = $('#' + this.options.id), i, scale = 1.0, self = this;
 			
-			// we have to reset all existing labels and digits alignment before proceeding with
-			// responsive adjust
-			this.resetAlignments(counter_container);
-			
-			// iterate through responsive sizes, except the last node, because it has a special role:
-			// it is a generic default preset for the rest of screen widths (normally a "desktop" case)
-			
-			// IMPORTANT: sizes nodes must be sorted ascending, otherwise responsive behavior will be
-			// unpredictable
-			for(i = 0; i < responsive.length - 1; i++) {
-				size_preset = responsive[i];
-				if(width < size_preset.sizes.value) {
-					// the first size that is grater than current width will win
-					
-					// apply scale
-					counter_container.css('font-size', this.options.base_font_size * size_preset.sizes.scale);
-					
-					// apply additional classes (if any)
-					if(size_preset.alt_classes.length > 0) {
-						$.each(size_preset.alt_classes, function(index, classes) {
-							if($.isArray(classes)) {
-								$.each(classes, function(ci, c) {
-									counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
-								});
-							} else {
-								counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
-							}
-						});
-					}
-					
-					// we are done - no need to continue looping
-					adjusted = true;
-					break;
-				}
-			}
-			if(!adjusted) {
-				// apply default scale and layout: we rely on the last node in responsive sizes, as it
-				// defines the scale and classes for all sizes that are greater that the listed ones
+			if(responsive && responsive.length > 0) {
+				// responsive behavior
+
+				// we have to reset all existing labels and digits alignment before proceeding with
+				// responsive adjust
+				this.resetAlignments(counter_container);
+				
+				// reset container font before starting measurments
 				counter_container.css('font-size', this.options.base_font_size);
-				standard_preset = responsive[responsive.length - 1];
-				if(standard_preset.alt_classes.length > 0) {
-					$.each(standard_preset.alt_classes, function(index, classes) {
-						if($.isArray(classes)) {
-							$.each(classes, function(ci, c) {
-								counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
-							});
-						} else {
-							counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
-						}
-					});
+				
+				// restore original layout before measurement
+				var scale_preset = responsive[responsive.length - 1];
+				this.applyLayout(counter_container, scale_preset.alt_classes);
+				
+				// update layout for new font size for correct measurement
+				this.setRowVerticalAlign();
+				
+				// check if horizontal-layout units wrap
+				var is_wrapping = this.checkWrapping(counter_container.find('.scd-unit-horz:visible, .scd-title-row'));
+				
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = counter_container.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					// $$$ Check why we have to use 0.95 k for scale???
+					scale = container_width / required_width * 0.95;
 				}
+
+				// check extreme case - wrapping digits in unit, do not allow this
+				var digit_groups = counter_container.find('.scd-digits:visible'), is_wrapped = false;
+				digit_groups.each(function() {
+					var $this = $(this);
+					var is_wrapping = self.checkWrapping($this.find('.scd-digit'));
+
+					if(is_wrapping.wrapped_width > 0) {
+						var container_width = $this.width();
+						var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+						
+						var this_scale = container_width / required_width * 0.95;
+						// only update current effective scale if we get a lower value here
+						if(this_scale < scale) {
+							scale = this_scale;
+						}
+						is_wrapped = true;
+					}
+				});
+				
+				// we have suggested scale at this point
+				// Look at scale alternative layouts in responsive settings
+				
+				// IMPORTANT: scale nodes must be sorted ascending, otherwise responsive behavior will be
+				// unpredictable
+				for(i = 0; i < responsive.length; i++) {
+					var scale_preset = responsive[i];
+					if(scale <= scale_preset.scale) {
+						// apply additional classes (if any)
+						this.applyLayout(counter_container, scale_preset.alt_classes);
+						
+						// we are done - no need to continue looping
+						break;
+					}
+				}
+				
+				// we have alternative layout applied
+				
+				// prepare to repeat measurement with updated layout - reset base font
+				scale = 1.0;
+				counter_container.css('font-size', this.options.base_font_size);
+				
+				// realign labels and measure units (for column layouts)
+				this.setRowVerticalAlign();
+				
+				// check if horizontal-layout units wrap
+				var is_wrapping = this.checkWrapping(counter_container.find('.scd-unit-horz:visible, .scd-title-row'));
+				
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = counter_container.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					// $$$ Check why we have to use 0.95 k for scale???
+					scale = container_width / required_width * 0.95;
+					counter_container.css('font-size', this.options.base_font_size * scale);
+					
+					// update layout for new base font size
+					this.setRowVerticalAlign();
+				}			
+			} else {
+				// prepare for next measurement if responsive feature is disabled
+				counter_container.css('font-size', this.options.base_font_size);
 			}
-			// realign labels and measure units (for column layouts)
+			
+			// even if responsive feature is disabled we always check for digits wrapping and
+			// scale the widget so that all digits in units are placed on the same line
+			var digit_groups = counter_container.find('.scd-digits:visible'), is_wrapped = false;
+			digit_groups.each(function() {
+				var $this = $(this);
+				var is_wrapping = self.checkWrapping($this.find('.scd-digit'));
+
+				if(is_wrapping.wrapped_width > 0) {
+					var container_width = $this.width();
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					
+					var this_scale = container_width / required_width * 0.95;
+					// only update current effective scale if we get a lower value here
+					if(this_scale < scale) {
+						scale = this_scale;
+					}
+					is_wrapped = true;
+				}
+			});
+			if(is_wrapped) {
+				// apply new calulated scale
+				counter_container.css('font-size', this.options.base_font_size * scale);
+			}
+			// update layout for new base font size
 			this.setRowVerticalAlign();
-			this.setLabelsPosition();
+			
+			/* we are not using "inline-block" on units any more, they are just floating, that is why
+			 * the wirkaround below is not needed any more - fine, 1 line of dirty code less...
+			// inline-block display was required for units measurement. We have to remove it for vertical units
+			counter_container.find('.scd-unit-vert:visible').css('display', '');
+			*/
 		},
 		
-		queryNextEvent : function(callback) {
+		checkWrapping : function(units) {
+			var row_width = 0, wrapped_width = 0, top = null;
+			units.each(function() {
+				var $this = $(this), unit_position = $this.position();
+				if(top === null) {
+					top = unit_position.top;
+				}
+				if(top != unit_position.top) {
+					wrapped_width += $this.outerWidth(true);
+				} else {
+					row_width += $this.outerWidth(true);
+				}
+			});
+			return {
+				row_width : row_width, // top row width (non-wrapped units)
+				wrapped_width : wrapped_width // all other rows (wrapped units)
+			};
+		},
+		
+		applyLayout : function(counter_container, alt_classes) {
+			if(alt_classes.length > 0) {
+				$.each(alt_classes, function(index, classes) {
+					if($.isArray(classes)) {
+						$.each(classes, function(ci, c) {
+							counter_container.find(c.selector).removeClass(c.remove).addClass(c.add);
+						});
+					} else {
+						counter_container.find(classes.selector).removeClass(classes.remove).addClass(classes.add);
+					}
+				});
+			}
+		},
+		
+		queryNextEvent : function(isNew) {
 			var self = this;
 			
 			// show spinner
-			$('#' + self.getId() + '-loading').show();
+			$('#' + self.options.id + '-loading').show();
+			
+			$('#' + self.options.id + ' .scd-all-wrapper').hide();
 			
 			var queryData = {
 				action : 'scd_query_next_event',
-				smartcountdown_nonce : smartcountdownajax.nonce
+				smartcountdown_nonce : smartcountdownajax.nonce /*,
+				// possible caching bugs workaround
+				unique : new Date().getTime() */
 			};
 			if(this.options.shortcode == 1) {
-				// shortcode - include deadline date and time in query
+				// shortcode - include required options in query
 				queryData.deadline = this.options.deadline;
+				queryData.import_config = this.options.import_config;
+				queryData.countdown_to_end = this.options.countdown_to_end;
+				// we have to add countup limit from original settings to query data.
+				queryData.countup_limit = this.options.original_countup_limit;
 			} else {
 				// widget - include widget id in query, the rest of widget configuration
 				// will be read on server from wp database
@@ -1180,57 +1493,101 @@
 					queryData,
 					function(response) {
 						// hide spinner
-						$('#' + self.getId() + '-loading').hide();
+						$('#' + self.options.id + '-loading').hide();
+						
+						$('#' + self.options.id + ' .scd-all-wrapper').show();
 						
 						if(response.err_code == 0) {
 							// Actually we have "self" object already initialized and
 							// setup with options (for both widget and shorcode modes)
 							
-							// we have to add actual "now" and "deadline" here, it
+							// we have to add actual "deadline" here, it
 							// should work for plain counters (caching workaround) and
-							// also for events import plugins (not implemented yet)
+							// also for events import plugins
 							
-							// *** For the latter case we must also copy event titles and
-							// other event-related data (links, images, etc...)
-							
-							/*
-							 * For now we are happy with "now" and "deadline" only
-							 */
 							self.options.deadline = response.options.deadline;
-							self.options.now = response.options.now;
+							
+							// we append imported event title (if any) to counter titles
+							// or insert imported title if a placeholder found in original
+							if(typeof response.options.imported_title !== 'undefined') {
+								// we have imported title
+								if(self.options.original_title_before_down != '') {
+									if(self.options.original_title_before_down.indexOf('%imported%') != -1) {
+										// replace placeholder with imported title
+										self.options.title_before_down = self.options.original_title_before_down.replace('%imported%', response.options.imported_title);
+									} else {
+										// no placeholder - append imported title
+										self.options.title_before_down = self.options.original_title_before_down + ' ' + response.options.imported_title;
+									}
+								} else {
+									// generic title empty - use imported title as is
+									self.options.title_before_down = response.options.imported_title;
+								}
+								if(self.options.original_title_before_up != '') {
+									if(self.options.original_title_before_up.indexOf('%imported%') != -1) {
+										// replace placeholder with imported title
+										self.options.title_before_up = self.options.original_title_before_up.replace('%imported%', response.options.imported_title);
+									} else {
+										// no placeholder - append imported title
+										self.options.title_before_up = self.options.original_title_before_up + ' ' + response.options.imported_title;
+									}
+								} else {
+									// generic title empty - use imported title as is
+									self.options.title_before_up = response.options.imported_title;
+								}
+							} else {
+								// just in case - remove "imported" placeholders
+								self.options.title_before_down = self.options.original_title_before_down.replace('%imported%', '');
+								self.options.title_before_up = self.options.original_title_before_up.replace('%imported%', '');
+							}
+							// some event import plugins may set is_countdown_to_end flag indicating that
+							// event date and time are actually end time for an event, so that we should display
+							// a countdown but with "up" title
+							if(response.options.is_countdown_to_end == 1) {
+								self.options.title_before_down = self.options.title_before_up;
+								self.options.title_after_down = self.options.title_after_up;
+							}
+							self.options.countup_limit = response.options.countup_limit;
 							
 							if(response.options.deadline == '') {
-								// no next events. TODO: hide counter(?),
-								// display message(?), etc.
+								// no next events. TODO: display message(?), etc.
 								
+								// detach counter from container - this is a definitive
+								// shut-down for this counter instance, as there are no future events
+								scds_container.remove(self.options.id);
+								
+								$('#' + self.options.id).hide();
 								return;
 							}
 							// *** TEST ***
-							//self.options.deadline = new Date(new Date().getTime() + 10000).toString();
+							//self.options.deadline = new Date(new Date().getTime() - 45000).toString();
 							// *** ***
 							
 							// convert deadline to javascript Date
-							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0 put a value here if we need initial correction */).toString();
+							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0*/).toString();
+
+							scds_container.setServerTime(response.options.now);
+							self.updateCounter(self.getCounterValues());
 							
-							self.updateCounter(self.getCounterValues(self.options.now));
-							
-							// callback to widget registration in container is
+							// widget registration in container is
 							// required only for the first event query, switching
 							// to next event in a running widgets doesn't require
 							// adding widget to container because it is already there
-							if(typeof callback === "function") {
-								callback(self.getId(), self);
+							if(isNew) {
+								scds_container.updateInstance(self.options.id, self);
 							}
 							
-							// init awake detect timestamp
-							self.awake_detect = new Date().getTime();
+							// We have to set counter mode limits and units display after geeting new event
+							self.setCounterUnitsVisibility(self.current_values);
 						} else {
 							// error
 						}
 					}
 				).fail(function(jqxhr, textStatus, error) {
 					// report error here...
-					$('#' + self.getId() + '-loading').hide();
+					$('#' + self.options.id + '-loading').hide();
+					
+					$('#' + self.options.id + ' .scd-all-wrapper').show();
 				});
 		}
 	}
