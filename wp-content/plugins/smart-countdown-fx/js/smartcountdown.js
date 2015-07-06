@@ -1049,9 +1049,14 @@
 			$.each(this.options.units, function(asset, display) {
 				var unit_wrapper = $('#' + self.options.id + '-' + asset);
 				if(display == 1 && $.inArray(asset, hide_units) == -1) {
-					//unit_wrapper.show();
+					unit_wrapper.show();
+					// *** we have added inline-block to counter container,
+					// so we can horizontally center widget elements, get unit
+					// float for horz layout (mesurement requirement) without
+					// "inline-block" display on units. Left float was also
+					// added to horizontal units class.
 					// we have to display units as inline-block
-					unit_wrapper.css('display', 'inline-block');
+					//unit_wrapper.css('display', 'inline-block');
 				} else {
 					unit_wrapper.hide();
 				}
@@ -1059,8 +1064,6 @@
 			
 			this.setRowVerticalAlign();
 			this.responsiveAdjust();
-			
-			//$('#' + this.options.id + ' .scd-unit-vert').css('display', 'block');
 			
 			var counter_container = $('#' + this.options.id);
 			
@@ -1419,8 +1422,11 @@
 			// update layout for new base font size
 			this.setRowVerticalAlign();
 			
+			/* we are not using "inline-block" on units any more, they are just floating, that is why
+			 * the wirkaround below is not needed any more - fine, 1 line of dirty code less...
 			// inline-block display was required for units measurement. We have to remove it for vertical units
 			counter_container.find('.scd-unit-vert:visible').css('display', '');
+			*/
 		},
 		
 		checkWrapping : function(units) {
@@ -1539,6 +1545,7 @@
 							// a countdown but with "up" title
 							if(response.options.is_countdown_to_end == 1) {
 								self.options.title_before_down = self.options.title_before_up;
+								self.options.title_after_down = self.options.title_after_up;
 							}
 							self.options.countup_limit = response.options.countup_limit;
 							
