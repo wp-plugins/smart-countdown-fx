@@ -117,9 +117,6 @@
 			if(renew) {
 				this.timer.now = new Date().getTime() + this.timer.offset;
 			}
-			
-			console.log(new Date(this.timer.now).toString());
-			
 			return this.timer.now;
 		},
 		responsiveAdjust : function() {
@@ -174,6 +171,7 @@
 			base_font_size : 12
 		},
 		current_values : {},
+		mode_changed : false,
 		elements : {},
 		
 		init : function(options) {
@@ -349,12 +347,9 @@
 			this.updateCounter(this.getCounterValues());
 		},
 		deadlineReached : function() {
-			// test only!!!
-			// Force animations re-init in new mode. Document it better
-			// or move to modeChanged() or hardInit()...
-			$('#' + this.options.id + ' .scd-digit').remove();
+			// Force animations re-init in new mode.
+			this.mode_changed = true;
 
-			this.options.mode = 'up';
 			var new_values = this.getCounterValues();
 			this.updateCounter(new_values);
 
@@ -647,8 +642,15 @@
 			
 			$('#' + this.options.id + '-' + asset + '-label').text(this.getLabel(asset, new_value));
 			
-			var wrapper = $('#' + this.options.id + '-' + asset + '-digits');
-			var count = wrapper.children('.scd-digit').length;
+			var wrapper = $('#' + this.options.id + '-' + asset + '-digits'), count = wrapper.children('.scd-digit').length;
+			// check if counter mode has changed (deadline reached or crossed)
+			if(this.mode_changed == true) {
+				// force recreating digits - new animation rules may apply
+				wrapper.children('.scd-digit').remove();
+				count = 0;
+				// this is one-time flag, reset it immediately
+				this.mode_changed = false;
+			}
 			
 			var updateDigitsWidth = false, new_digits;
 			
