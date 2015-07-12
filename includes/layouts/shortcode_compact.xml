@@ -16,25 +16,13 @@
 	<hide_highest_zeros>1</hide_highest_zeros>
 	<allow_lowest_zero>0</allow_lowest_zero>
 	<responsive value="1">
-		<size value="320" scale="2.0">
+		<scale value="0.5">
 			<layout>vert</layout>
 			<labels_pos>col</labels_pos>
-		</size>
-		<size value="480" scale="1.5">
-			<layout>vert</layout>
-			<labels_pos>col</labels_pos>
-		</size>
-		<size value="768" scale="1.0">
+		</scale>
+		<scale value="0.8">
 			<layout>vert</layout>
 			<labels_pos>row</labels_pos>
-		</size>
-		<size value="960" scale="0.9">
-			<layout>horz</layout>
-			<labels_pos>col</labels_pos>
-		</size>
-		<size value="*" scale="1.0">
-			<layout>horz</layout>
-			<labels_pos>col</labels_pos>
-		</size>
+		</scale>
 	</responsive>
 </layout>
