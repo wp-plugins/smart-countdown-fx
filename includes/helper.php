@@ -239,9 +239,16 @@ abstract class SmartCountdown_Helper {
 	 * in 'c' format (ready for javascript Date() initialization)
 	 */
 	public static function updateDeadlineUTC( $options ) {
-		// For now we use current WP system time (aware of time zone in settings)
-		$deadline = new DateTime( !empty( $options['deadline'] ) ? $options['deadline'] : null /*, new DateTimeZone('UTC')*/);
+		$deadline = self::localDateToUTC( $options['deadline'] );
 		
+		$options['deadline'] = $deadline->format( 'c' );
+		
+		return $options;
+	}
+	
+	public static function localDateToUTC( $local_date = null ) {
+		$date = new DateTime( !empty( $local_date ) ? $local_date : null );
+		// For now we use current WP system time (aware of time zone in settings)
 		$tz_string = get_option( 'timezone_string', 'UTC' );
 		if ( empty( $tz_string ) ) {
 			// direct offset if not a TZ
@@ -249,19 +256,17 @@ abstract class SmartCountdown_Helper {
 		} else {
 			try {
 				$tz = new DateTimeZone( $tz_string );
-				$offset = $tz->getOffset( $deadline );
+				$offset = $tz->getOffset( $date );
 			} catch(Exception $e) {
 				$offset = 0; // invalid timezone string
 			}
 		}
 		
-		// convert deadline to UTC
-		$deadline->modify( ( $offset < 0 ? '+' : '-' ) . abs( $offset ) . ' second' );
-		
-		$options['deadline'] = $deadline->format( 'c' );
-		
-		return $options;
+		// convert date to UTC
+		$date->modify( ( $offset < 0 ? '+' : '-' ) . abs( $offset ) . ' second' );
+		return $date;
 	}
+	
 	/**
 	 * 
 	 * @param array - original $instance

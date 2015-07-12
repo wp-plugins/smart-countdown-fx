@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 1.2.5
+Version: 1.2.6
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -450,7 +450,7 @@ class SmartCountdown_Widget extends WP_Widget {
 	<input class="checkbox"
 		id="<?php echo $this->get_field_id( 'hide_countup_counter' ); ?>"
 		name="<?php echo $this->get_field_name( 'hide_countup_counter' ); ?>"
-		type="checkbox" <?php echo ($hide_countup_counter ? ' checked' : ''); ?>" />
+		type="checkbox" <?php echo ($hide_countup_counter ? ' checked' : ''); ?> />
 	<label for="<?php echo $this->get_field_id( 'hide_countup_counter' ); ?>"><?php _e( 'Use titles for count up mode as "Time has arrived" message', 'smart-countdown' ); ?></label>
 </p>
 <?php echo SmartCountdown_Helper::checkboxesInput( $this, $instance['units'], array( 'legend' => __( 'Display counter units:', 'smart-countdown' ) ) ); ?>
@@ -688,21 +688,25 @@ class SmartCountdown_Widget extends WP_Widget {
 				// this is a call from shortcode counter
 				
 				$import_config = esc_attr( $_REQUEST['import_config'] );
+				// for event import to work we need countup limit from request
+				$countup_limit = ( int ) $_REQUEST['countup_limit'];
 				if ( empty( $import_config ) ) {
 					try {
-						$deadline = new DateTime( $_REQUEST['deadline'] );
-						// we use simplified parameter here - the only thing we are interested on return is a correctly
-						// formatted "deadline" (with timezone correction)
-						$response['options'] = SmartCountdown_Helper::updateDeadlineUTC( array (
-								'deadline' => $deadline->format( 'Y-m-d H:i:s' ) 
-						) );
+						$deadline = esc_attr( $_REQUEST['deadline'] );
+						
+						$deadlineUTC = SmartCountdown_Helper::localDateToUTC( $deadline );
+						if ( $countup_limit >= 0 && $now_ts - $deadlineUTC->getTimestamp() >= $countup_limit ) {
+							// too late to show the counter
+							$response['options']['deadline'] = '';
+						} else {
+							$response['options']['deadline'] = $deadlineUTC->format( 'c' );
+							$response['options']['countup_limit'] = $countup_limit;
+						}
 					} catch ( Exception $e ) {
 						// invalid date in request. TODO: Log error
 						$response['options']['deadline'] = '';
 					}
 				} else {
-					// for event import to work we need countup limit from request
-					$countup_limit = ( int ) $_REQUEST['countup_limit'];
 					$countdown_to_end = ( int ) $_REQUEST['countdown_to_end'];
 					$options['import_config'] = $import_config;
 					$options['countup_limit'] = $countup_limit;

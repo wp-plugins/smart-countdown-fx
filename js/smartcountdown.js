@@ -80,9 +80,6 @@
 				scds_container.fireAllCounters();
 			}, timeout)
 			
-			// update internal server now each tick
-			this.timer.now += MILLIS_IN_SECOND;
-
 			// keep track of accumulated correction
 			this.timer.acc_correction += (elapsed - MILLIS_IN_SECOND);
 
@@ -98,6 +95,9 @@
 			} else if(this.timer.suspend_threshold > MIN_SUSPEND_THRESHOLD) {
 				this.timer.suspend_threshold -= SUSPEND_THRESHOLD_RESTRICT_STEP;
 			}
+			
+			// update internal server now each tick
+			this.timer.now += MILLIS_IN_SECOND;
 			
 			$.each(this.instances, function() {
 				this.tick(true, correction);
@@ -117,6 +117,9 @@
 			if(renew) {
 				this.timer.now = new Date().getTime() + this.timer.offset;
 			}
+			
+			console.log(new Date(this.timer.now).toString());
+			
 			return this.timer.now;
 		},
 		responsiveAdjust : function() {
@@ -217,9 +220,8 @@
 			if(typeof correction !== 'undefined' && correction != 0) {
 				var diff = this.diff + (correction + MILLIS_IN_SECOND ) * delta;
 				if(this.options.mode == 'down' && diff <= 0) {
-					// deadline reached while suspended, change mode and send current
-					// adjusted coutup diff
-					this.deadlineReached(diff * -1);
+					// deadline reached while suspended
+					this.deadlineReached();
 				} else {
 					// recalculate counter values
 					// when browser is resumed, values queue can contain
@@ -295,7 +297,7 @@
 			if(new_values.seconds < 0) {
 				// check for deadline
 				if(this.diff <= 0) {
-					return this.deadlineReached(0);
+					return this.deadlineReached();
 				}
 				new_values.seconds = this.options.limits.seconds - 1;
 				if(this.options.units.minutes == 1) {
@@ -346,14 +348,13 @@
 			}
 			this.updateCounter(this.getCounterValues());
 		},
-		deadlineReached : function(new_diff) {
+		deadlineReached : function() {
 			// test only!!!
 			// Force animations re-init in new mode. Document it better
 			// or move to modeChanged() or hardInit()...
 			$('#' + this.options.id + ' .scd-digit').remove();
 
 			this.options.mode = 'up';
-			this.diff = new_diff;
 			var new_values = this.getCounterValues();
 			this.updateCounter(new_values);
 
@@ -366,6 +367,10 @@
 			if(this.options.redirect_url != '') {
 				window.location = this.options.redirect_url;
 			}
+			
+			// we need this tick to immediately display digits if deadline
+			// was reached while the counter was running (not after suspend/resume)
+			this.tick(true);
 		},
 		/*
 		 * This method performs the main work of calculating counter values
@@ -640,7 +645,6 @@
 			old_value = this.padLeft(old_value, this.options.paddings[asset]);
 			new_value = this.padLeft(new_value, this.options.paddings[asset]);
 			
-			// test only labels!
 			$('#' + this.options.id + '-' + asset + '-label').text(this.getLabel(asset, new_value));
 			
 			var wrapper = $('#' + this.options.id + '-' + asset + '-digits');
@@ -1564,7 +1568,7 @@
 							// *** ***
 							
 							// convert deadline to javascript Date
-							self.options.deadline = new Date(new Date(self.options.deadline).getTime() /* + 0*/).toString();
+							self.options.deadline = new Date(new Date(self.options.deadline).getTime()).toString();
 
 							scds_container.setServerTime(response.options.now);
 							self.updateCounter(self.getCounterValues());
