@@ -171,7 +171,6 @@
 			base_font_size : 12
 		},
 		current_values : {},
-		mode_changed : false,
 		elements : {},
 		
 		init : function(options) {
@@ -347,11 +346,9 @@
 			this.updateCounter(this.getCounterValues());
 		},
 		deadlineReached : function() {
-			// Force animations re-init in new mode.
-			this.mode_changed = true;
-
 			var new_values = this.getCounterValues();
-			this.updateCounter(new_values);
+			// Force animations re-init in new mode.
+			this.updateCounter(new_values, true);
 
 			// update units visibilty, new_diff may be far from zero if the
 			// deadline was reached while suspended, so we must counter
@@ -576,7 +573,14 @@
 				return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 			}
 		},
-		updateCounter : function(new_values) {
+		updateCounter : function(new_values, mode_changed) {
+			if(mode_changed === true) {
+				// reset all digits and elements, so that they are recreated
+				// for new animation (down/up modes can use different animations)
+				$('#' + this.options.id + ' .scd-digit').remove();
+				this.elements = {};
+			}
+			
 			this.display(new_values);
 			this.displayTexts(); // *** this call is required only on mode down/up change
 			// e.g. texts are dirty
@@ -643,15 +647,6 @@
 			$('#' + this.options.id + '-' + asset + '-label').text(this.getLabel(asset, new_value));
 			
 			var wrapper = $('#' + this.options.id + '-' + asset + '-digits'), count = wrapper.children('.scd-digit').length;
-			// check if counter mode has changed (deadline reached or crossed)
-			if(this.mode_changed == true) {
-				// force recreating digits - new animation rules may apply
-				wrapper.children('.scd-digit').remove();
-				count = 0;
-				// this is one-time flag, reset it immediately
-				this.mode_changed = false;
-			}
-			
 			var updateDigitsWidth = false, new_digits;
 			
 			if(new_value.length != count) {
@@ -1478,9 +1473,9 @@
 			
 			var queryData = {
 				action : 'scd_query_next_event',
-				smartcountdown_nonce : smartcountdownajax.nonce /*,
-				// possible caching bugs workaround
-				unique : new Date().getTime() */
+				smartcountdown_nonce : smartcountdownajax.nonce,
+				// caching bugs workaround
+				unique_ts : new Date().getTime()
 			};
 			if(this.options.shortcode == 1) {
 				// shortcode - include required options in query
