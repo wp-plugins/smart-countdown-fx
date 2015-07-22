@@ -1,6 +1,17 @@
 .widget_smartcountdown {
 	font-size: 12px; /* Important: has to be equal to SCD_BASE_FONT_SIZE */
 }
+.widget_smartcountdown .textwidget {
+	font-size: inherit;
+}
+.scd-all-wrapper {
+	width: 100%;
+	font-size: inherit;
+}
+/* some themes define line-height for elements, have to reset it for countdown */
+.scd-title-col, .scd-title-row, .scd-digits {
+	line-height: 1.2em;
+}
 .scd-title-col {
 	clear: left;
 	margin: 0.5em 0;
@@ -10,19 +21,26 @@
 	margin: 0 0.5em;
 }
 .scd-counter-col {
+	display: inline-block !important; /* required to center counter block */
 	clear: left;
 }
 .scd-counter-row {
 	float: left;
 	margin: 0 0.5em;
 }
+/* 
+.scd-unit {
+	display: inline-block;
+}
+*/
 .scd-unit-vert {
 	clear: left;
 	margin: 0.5em 0;
 }
 .scd-unit-horz {
-	float: left;
+	float: left; /* we are using float, not inline-block display */
 	margin: 0 0.5em;
+	/* display: inline-block; */
 }
 .scd-digits-col {
 	clear: left;
@@ -39,6 +57,7 @@
 }
 .scd-label-row {
 	float: left;
+	text-align: left;
 	margin: 0 0.5em;
 }
 .scd-digit {
@@ -54,13 +73,15 @@
 	margin: 0!important;
 	padding: 0!important;
 }
-
+.scd-digit div {
+	font-size: inherit;
+}
 
 .spinner {
 	/* background url added dynamically in helper script */
 	background-size: 16px 16px;
 	display: none;
-	/*float: right;*/
+	/* float: right; */
 	opacity: .7;
 	filter: alpha(opacity=70);
 	width: 16px;
