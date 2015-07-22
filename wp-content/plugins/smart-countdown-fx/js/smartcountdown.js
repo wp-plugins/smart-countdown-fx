@@ -583,26 +583,24 @@
 				this.elements = {};
 			}
 			
-			this.display(new_values);
+			this.display(new_values, mode_changed);
 			this.displayTexts(); // *** this call is required only on mode down/up change
 			// e.g. texts are dirty
 		},
-		display : function(new_values) {
+		display : function(new_values, mode_changed) {
 			var prev, next;
 			if(typeof this.current_values.seconds === 'undefined') {
 				// first hard init case. Make this logic better!!! $$$
 				this.initDisplay = true;
 				this.current_values = new_values;
-				return;
-			} else {
-				prev = this.current_values;
 			}
+			prev = this.current_values;
 			next = new_values;
 			
 			// Update counter output
 			var i, self = this, updateUnitsWidth = false;
 			$.each(this.options.units, function(asset, display) {
-				if(display == 0 || (!self.initDisplay && next[asset] == prev[asset])) {
+				if(display == 0 || (!self.initDisplay && !mode_changed && next[asset] == prev[asset])) {
 					return; // no display or unit has not changed - continue loop
 				}
 				// only update on init or if the value actually changed
