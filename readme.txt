@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.3
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,10 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.3.1 =
+
+* Update to 1.3 has caused problems for some customers, trunk version was not in sync with the tag
 
 = 1.3 =
 
