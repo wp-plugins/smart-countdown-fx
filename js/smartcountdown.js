@@ -433,7 +433,13 @@
 			}
 			if(daysDiff < 0) {
 				monthsDiff--;
-				daysDiff += daysInThisMonth(now.year, now.month);
+				// tricky: if we get negative days diff we must calculate correct effective days
+				// diff basing on the number of days in "now" month and in the month previous to
+				// "target" and choose the month with more days in it for correct calculation
+				var daysInNowMonth = daysInThisMonth(now.year, now.month);
+				var daysInPrevTargetMonth = daysInPrevMonth(target.year, target.month);
+				// correct daysDiff to get effective positive value
+				daysDiff += (daysInNowMonth > daysInPrevTargetMonth ? daysInNowMonth : daysInPrevTargetMonth);
 			}
 			if(monthsDiff < 0) {
 				yearsDiff--;
@@ -446,26 +452,20 @@
 			// days-hours-seconds part of the interval
 			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILLIS_IN_SECOND;
 			
-			// get months part end date by subtracting days and time parts from target
+			// get years interval part end date
+			var yearsEnd = new Date(Date.UTC(now.year + yearsDiff, now.month - 1, (now.month == 2 && now.day == 29 && new Date(now.year + yearsDiff, 1, 29).getMonth() == 1 ? now.day : 28), 0, 0, 0));
+			var yearsSpan = yearsEnd.valueOf() - dateFrom.valueOf();
+			
+			// get months interval part end date
 			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILLIS_IN_DAY - timeSpan);
-			
-			// get months part of the diff interval
-			var startMonth = monthsEnd.getMonth() - monthsDiff;
-			var startYear = target.year;
-			if(startMonth < 0) {
-				startYear--;
-			}
-			var monthsStart = new Date(startYear, startMonth, monthsEnd.getDate(), monthsEnd.getHours(), monthsEnd.getMinutes(), monthsEnd.getSeconds());
-			var monthsSpan = monthsEnd.valueOf() - monthsStart.valueOf();
-			
-			// years part of the interval
-			var yearsSpan = this.diff - monthsSpan - daysDiff * MILLIS_IN_DAY - timeSpan;
+			var monthsSpan = monthsEnd.valueOf() - yearsEnd.valueOf();
 			
 			// construct resulting values
 			var result = {
 					/*
 					years : null,
 					months : null,
+					weeks : null,
 					days : null,
 					hours : null,
 					minutes : null,
@@ -568,11 +568,23 @@
 				}
 			}
 			function daysInThisMonth(year, month) {
+				// js Date implements 0-based months (0-11), we need next month for current
+				// calculation, so passing 1-based month will do the trick, except DEC (12) -
+				// we convert it to month 0 of the next year
 				if(month == 12) {
 					year++;
 					month = 0;
 				}
+				// day 0 means the last hour of previous day, so we get here the date
+				// of the last day of month-1
 				return new Date(Date.UTC(year, month, 0)).getUTCDate();
+			}
+			function daysInPrevMonth(year, month) {
+				month = month - 2; // -1 for JS Date month notaion (0-11) - 1 for previous month
+				if(month < 0) {
+					year--;
+				}
+				return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 			}
 		},
 		updateCounter : function(new_values, mode_changed) {

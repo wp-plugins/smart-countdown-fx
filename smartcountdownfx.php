@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 1.3
+Version: 1.3.2
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -814,10 +814,30 @@ class SmartCountdown_Widget extends WP_Widget {
 		// for manually set ids site admin is responsible for ids security
 		
 		// convert units list to an array
-		$units_selected = array_map( 'trim', explode( ',', $atts['units'] ) );
-		if ( count( $units_selected ) == 1 && $units_selected[0] == '*' ) {
+		if( trim( $atts['units'] ) == '*' ) {
+			// default units set
 			$units = self::$defaults['units'];
+		} elseif( strpos( $atts['units'], '-' ) === 0 ) {
+			// negative list (hide units)
+			$units_hidden = array_map( 'trim', explode( ',', substr( $atts['units'], 1 ) ) );
+			$units = array (
+					'years' => 1,
+					'months' => 1,
+					'weeks' => 1,
+					'days' => 1,
+					'hours' => 1,
+					'minutes' => 1,
+					'seconds' => 1
+			);
+			foreach ( $units_hidden as $unit ) {
+				// ignore unknown units
+				if( isset( $units[$unit] ) ) {
+					$units[$unit] = 0;
+				}
+			}
 		} else {
+			// positive list (show units)
+			$units_selected = array_map( 'trim', explode( ',', $atts['units'] ) );
 			$units = array (
 					'years' => 0,
 					'months' => 0,
@@ -825,10 +845,13 @@ class SmartCountdown_Widget extends WP_Widget {
 					'days' => 0,
 					'hours' => 0,
 					'minutes' => 0,
-					'seconds' => 0 
+					'seconds' => 0
 			);
 			foreach ( $units_selected as $unit ) {
-				$units[$unit] = 1;
+				// ignore unknown units
+				if( isset( $units[$unit] ) ) {
+					$units[$unit] = 1;
+				}
 			}
 		}
 		$atts['units'] = $units;
