@@ -160,7 +160,7 @@
 			animations : {},
 			labels_vert_align : 'middle',
 			initDisplay : true,
-			allow_lowest_zero : 0,
+			allow_all_zeros : 0,
 			replace_lowest_zero : 1,
 			hide_highest_zeros : 0,
 			hide_countup_counter : 0,
@@ -386,6 +386,17 @@
 				dateTo = new Date();
 			}
 			
+			/** TEST UNIT ***
+			var testFrom = '2012-02-28 06:00:00';
+			var testTo = '2015-04-01 12:00:00';
+			
+			if(testFrom.length == 10) testFrom = testFrom + ' 00:00:00';
+			if(testTo.length == 10) testTo = testTo + ' 00:00:00';
+			
+			dateTo = new Date(testTo.replace(' ', 'T') + '+00:00');
+			dateFrom = new Date(testFrom.replace(' ', 'T') + '+00:00');
+			*** TEST UNIT END ***/
+			
 			// swap dateTo and dateFrom for 'up' mode and
 			// set surrent counter mode ('down'/'up')
 			this.diff = dateTo - dateFrom;
@@ -433,7 +444,13 @@
 			}
 			if(daysDiff < 0) {
 				monthsDiff--;
-				daysDiff += daysInThisMonth(now.year, now.month);
+				// tricky: if we get negative days diff we must calculate correct effective days
+				// diff basing on the number of days in "now" month and in the month previous to
+				// "target" and choose the month with more days in it for correct calculation
+				var daysInNowMonth = daysInThisMonth(now.year, now.month);
+				var daysInPrevTargetMonth = daysInPrevMonth(target.year, target.month);
+				// correct daysDiff to get effective positive value
+				daysDiff += (daysInNowMonth > daysInPrevTargetMonth ? daysInNowMonth : daysInPrevTargetMonth);
 			}
 			if(monthsDiff < 0) {
 				yearsDiff--;
@@ -446,26 +463,20 @@
 			// days-hours-seconds part of the interval
 			var timeSpan = (hoursDiff * SECONDS_IN_HOUR + minutesDiff * SECONDS_IN_MINUTE + secondsDiff) * MILLIS_IN_SECOND;
 			
-			// get months part end date by subtracting days and time parts from target
+			// get years interval part end date
+			var yearsEnd = new Date(Date.UTC(now.year + yearsDiff, now.month - 1, now.month == 2 && now.day == 29 && new Date(now.year + yearsDiff, 1, 29).getMonth() != 1 ? 28 : now.day, now.hours, now.minutes, now.seconds));
+			var yearsSpan = yearsEnd.valueOf() - dateFrom.valueOf();
+			
+			// get months interval part end date
 			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILLIS_IN_DAY - timeSpan);
-			
-			// get months part of the diff interval
-			var startMonth = monthsEnd.getMonth() - monthsDiff;
-			var startYear = target.year;
-			if(startMonth < 0) {
-				startYear--;
-			}
-			var monthsStart = new Date(startYear, startMonth, monthsEnd.getDate(), monthsEnd.getHours(), monthsEnd.getMinutes(), monthsEnd.getSeconds());
-			var monthsSpan = monthsEnd.valueOf() - monthsStart.valueOf();
-			
-			// years part of the interval
-			var yearsSpan = this.diff - monthsSpan - daysDiff * MILLIS_IN_DAY - timeSpan;
+			var monthsSpan = monthsEnd.valueOf() - yearsEnd.valueOf();
 			
 			// construct resulting values
 			var result = {
 					/*
 					years : null,
 					months : null,
+					weeks : null,
 					days : null,
 					hours : null,
 					minutes : null,
@@ -568,11 +579,23 @@
 				}
 			}
 			function daysInThisMonth(year, month) {
+				// js Date implements 0-based months (0-11), we need next month for current
+				// calculation, so passing 1-based month will do the trick, except DEC (12) -
+				// we convert it to month 0 of the next year
 				if(month == 12) {
 					year++;
 					month = 0;
 				}
+				// day 0 means the last hour of previous day, so we get here the date
+				// of the last day of month-1
 				return new Date(Date.UTC(year, month, 0)).getUTCDate();
+			}
+			function daysInPrevMonth(year, month) {
+				month = month - 2; // -1 for JS Date month notaion (0-11) - 1 for previous month
+				if(month < 0) {
+					year--;
+				}
+				return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 			}
 		},
 		updateCounter : function(new_values, mode_changed) {
@@ -994,7 +1017,7 @@
 		/**
 		 * Set counter units visibility according to units display configuration and counter values.
 		 * Related settings:
-		 * - allow_lowest_zero: show zero in the lowest counter unit, if not allowed, the unit with zero
+		 * - allow_all_zeros: show zero in the lowest counter unit, if not allowed, the unit with zero
 		 * value will be replaced by a lower non-zero unit and replaced with original unit once its value
 		 * is grater than zero
 		 * - hide_highest_zeros: hide highest counter units until a non-zero unit is found, even if these
@@ -1005,17 +1028,19 @@
 			var hide_units = $.extend([], this.options.hide_lower_units);
 			var i, assets = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
 			
-			// allow_lowest_zero feature
-			if(this.options.allow_lowest_zero == 0 && $.inArray('seconds', hide_units) != -1) {
+			// allow_all_zeros feature
+			if(this.options.allow_all_zeros == 0 && $.inArray('seconds', hide_units) != -1) {
 				var index;
-				var lowest_displayed_unit = -1;
+				var lowest_displayed_unit = -1, is_non_zero = 0;
 				for(i = 0; i < assets.length; i++) {
 					index = $.inArray(assets[i], hide_units);
 					if(index == -1) {
+						is_non_zero = is_non_zero + new_values[assets[i]];
 						lowest_displayed_unit = i;
 					}
 				}
-				if(lowest_displayed_unit >= 0 && new_values[assets[lowest_displayed_unit]] == 0) {
+				// only apply "allow_all_zeros disabled" effect if all displayed counter units are zeros
+				if(!is_non_zero && lowest_displayed_unit >= 0 && new_values[assets[lowest_displayed_unit]] == 0) {
 					for(i = lowest_displayed_unit; i < assets.length; i++) {
 						if(new_values[assets[i]] > 0 || assets[i] == 'seconds') {
 							index = $.inArray(assets[i], hide_units);
@@ -1035,7 +1060,7 @@
 			// hide_highest_zeros feature
 			if(this.options.hide_highest_zeros == 1) {
 				var lowest_displayed_unit = -1;
-				for(i = 0; i < assets.length; i++) {
+				for(i = 0; i < assets.length - 1; i++) { // set i < assets.length - 1, because we never hide seconds as highest unit
 					if(this.options.units[assets[i]] == 0) {
 						continue;
 					}
@@ -1053,6 +1078,21 @@
 				if(lowest_displayed_unit > -1 && new_values[assets[lowest_displayed_unit]] == 0) {
 					hide_units.splice(lowest_displayed_unit, 1);
 				}
+				
+				// make sure that we have at least one visible unit - some configurations
+				// (e.g. allow_all_zeros=1 && hide_highest_zeros=1) may result in all units
+				// selected for display in module settings are hidden
+				var visible_unit_found = false;
+				$.each(this.options.units, function(asset, display) {
+					if(display && $.inArray(asset, hide_units) == -1) {
+						visible_unit_found = true;
+						return false; // break the loop
+					}
+				});
+				// no visible units, show the lowest one
+				if(!visible_unit_found) {
+					hide_units.pop();
+				}
 			}
 			
 			// apply calculated hide_units configuration
@@ -1061,13 +1101,6 @@
 				var unit_wrapper = $('#' + self.options.id + '-' + asset);
 				if(display == 1 && $.inArray(asset, hide_units) == -1) {
 					unit_wrapper.show();
-					// *** we have added inline-block to counter container,
-					// so we can horizontally center widget elements, get unit
-					// float for horz layout (mesurement requirement) without
-					// "inline-block" display on units. Left float was also
-					// added to horizontal units class.
-					// we have to display units as inline-block
-					//unit_wrapper.css('display', 'inline-block');
 				} else {
 					unit_wrapper.hide();
 				}
@@ -1077,19 +1110,7 @@
 			this.responsiveAdjust();
 			
 			var counter_container = $('#' + this.options.id);
-			
-			/* *** a sort of a panic action - no counter units are displayed, we have to hide the whole widget*/
-			/*
-			 * $$$ THIS IS ABSOLUTELY NOT OK!!!! if not all units are displayed, hide_units
-			 * will never be = 7 event if all units are hidden
-			 
-			if(hide_units.length < 7) {
-				counter_container.show();
-			} else {
-				counter_container.hide();
-			}
-			*/
-			
+
 			// For count up mode we implement an option to completely hide
 			// counter digits block after the event time is reached
 			if(this.options.mode == 'up') {
@@ -1574,9 +1595,6 @@
 								$('#' + self.options.id).hide();
 								return;
 							}
-							// *** TEST ***
-							//self.options.deadline = new Date(new Date().getTime() - 45000).toString();
-							// *** ***
 							
 							// convert deadline to javascript Date
 							self.options.deadline = new Date(new Date(self.options.deadline).getTime()).toString();

@@ -121,7 +121,7 @@ abstract class SmartCountdown_Helper {
 			$instance['labels_vert_align'] = ( string ) $xml->labels_vert_align;
 			
 			$instance['hide_highest_zeros'] = ( string ) $xml->hide_highest_zeros;
-			$instance['allow_lowest_zero'] = ( string ) $xml->allow_lowest_zero;
+			$instance['allow_all_zeros'] = ( string ) $xml->allow_all_zeros;
 			
 			$responsive = array ();
 				

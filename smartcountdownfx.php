@@ -5,7 +5,7 @@ Text Domain: smart-countdown
 Domain Path: /languages
 Plugin URI: http://smartcalc.es/wp
 Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
-Version: 1.3
+Version: 1.3.4
 Author: Alex Polonski
 Author URI: http://smartcalc.es/wp
 License: GPLv2 or later
@@ -38,7 +38,7 @@ class SmartCountdown_Widget extends WP_Widget {
 			),
 			
 			'hide_highest_zeros' => 1,
-			'allow_lowest_zero' => 0,
+			'allow_all_zeros' => 0,
 			
 			'countdown_limit' => -1,
 			'countup_limit' => -1,
@@ -112,7 +112,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		// not included into display configuration we set "hide unit" flag and
 		// reactivate unit in display config. *** Document this better
 		$hide_lower_units = array ();
-		if ( $instance['allow_lowest_zero'] == 0 ) {
+		if ( $instance['allow_all_zeros'] == 0 ) {
 			foreach ( array_reverse( $instance['units'], true ) as $asset => $display ) {
 				if ( $display == 0 ) {
 					$hide_lower_units[] = $asset;
@@ -143,7 +143,7 @@ class SmartCountdown_Widget extends WP_Widget {
 		 * $$$ check if it is possible
 		 */
 		
-		if ( is_customize_preview() ) {
+		if ( function_exists( 'is_customize_preview' ) && is_customize_preview() ) {
 			// in customize preview other smartcountdown widget may exist on the page.
 			// We have to set 'customize_preview' in instance options only if this instance,
 			// is being customized actually
@@ -814,10 +814,30 @@ class SmartCountdown_Widget extends WP_Widget {
 		// for manually set ids site admin is responsible for ids security
 		
 		// convert units list to an array
-		$units_selected = array_map( 'trim', explode( ',', $atts['units'] ) );
-		if ( count( $units_selected ) == 1 && $units_selected[0] == '*' ) {
+		if( trim( $atts['units'] ) == '*' ) {
+			// default units set
 			$units = self::$defaults['units'];
+		} elseif( strpos( $atts['units'], '-' ) === 0 ) {
+			// negative list (hide units)
+			$units_hidden = array_map( 'trim', explode( ',', substr( $atts['units'], 1 ) ) );
+			$units = array (
+					'years' => 1,
+					'months' => 1,
+					'weeks' => 1,
+					'days' => 1,
+					'hours' => 1,
+					'minutes' => 1,
+					'seconds' => 1
+			);
+			foreach ( $units_hidden as $unit ) {
+				// ignore unknown units
+				if( isset( $units[$unit] ) ) {
+					$units[$unit] = 0;
+				}
+			}
 		} else {
+			// positive list (show units)
+			$units_selected = array_map( 'trim', explode( ',', $atts['units'] ) );
 			$units = array (
 					'years' => 0,
 					'months' => 0,
@@ -825,10 +845,13 @@ class SmartCountdown_Widget extends WP_Widget {
 					'days' => 0,
 					'hours' => 0,
 					'minutes' => 0,
-					'seconds' => 0 
+					'seconds' => 0
 			);
 			foreach ( $units_selected as $unit ) {
-				$units[$unit] = 1;
+				// ignore unknown units
+				if( isset( $units[$unit] ) ) {
+					$units[$unit] = 1;
+				}
 			}
 		}
 		$atts['units'] = $units;

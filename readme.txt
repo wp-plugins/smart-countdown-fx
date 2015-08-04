@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 3.6
 Tested up to: 4.2.2
-Stable tag: 1.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,24 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.3.4 =
+
+* Minor bug fixes
+
+= 1.3.3 =
+
+* Bug fix: wrong interval calculation if years are visible but months are hidden
+* Bug fix: all counter units become hidden in some configurations when displaying values close to event time
+
+= 1.3.2 =
+
+* Improvement: now "units" shortcode attribute can also define a list of units to hide (if started with "-"), e.g. units="-weeks,seconds" will show all counter units except weeks and seconds.
+* Bug fix: more reliable months and days interval calculation in rare cases (e.g. when counting from leap FEB 29)
+
+= 1.3.1 =
+
+* Update to 1.3 has caused problems for some customers, trunk version was not in sync with the tag
 
 = 1.3 =
 

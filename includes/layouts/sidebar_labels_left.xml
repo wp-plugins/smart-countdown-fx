@@ -14,7 +14,7 @@
 	<labels_pos>left</labels_pos>
 	<labels_vert_align>middle</labels_vert_align>
 	<hide_highest_zeros>1</hide_highest_zeros>
-	<allow_lowest_zero>0</allow_lowest_zero>
+	<allow_all_zeros>0</allow_all_zeros>
 	<responsive value="1">
 		<scale value="0.8">
 			<layout>vert</layout>
