@@ -1223,17 +1223,21 @@
 				});
 			}
 			this.setLabelsPosition();
-			
+
+			this.displayBlockWorkaround();
+		},
+		displayBlockWorkaround : function() {
 			// "display:inline-block" is a required CSS rule for the most of counter layouts
 			// (all layouts with titles not inline). This rule will center the widget across the
 			// page or widget area if widget_style attribute is set to "text-align:center".
 			// Some themes override text-align rule in widget classes and it's important to set
 			// "inline-block" every time counter layout might change.
 			// Not possible to use "!important" modificator in CSS file - it will break other
-			// plugin functions (e.g. hide_countup_counter) 
-			$('#' + this.options.id).find('.scd-counter-col').css('display', 'inline-block');
+			// plugin functions (e.g. hide_countup_counter)
+			if(this.options.hide_countup_counter != 1 || this.options.mode != 'up') {
+				$('#' + this.options.id).find('.scd-counter-col').css('display', 'inline-block');
+			}
 		},
-		
 		updateMinLabelsWidth : function() {
 			// use the fisrt visible label as test element for measuring. This method is called only once per
 			// script life-time and on early stage, so we can rely on visible pseudo-selector: counter visibilty
@@ -1619,7 +1623,7 @@
 								scds_container.updateInstance(self.options.id, self);
 							}
 							
-							// We have to set counter mode limits and units display after geeting new event
+							// We have to set counter mode limits and units display after setting up a new event
 							self.setCounterUnitsVisibility(self.current_values);
 						} else {
 							// error
