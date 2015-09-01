@@ -1,23 +1,23 @@
 /**
- * version 1.3.8
+ * version 1.3.9
  */
 (function($) {
-	const MILLIS_IN_DAY = 86400000;
-	const MILLIS_IN_HOUR = 3600000;
-	const MILLIS_IN_MINUTE = 60000;
-	const MILLIS_IN_SECOND = 1000;
+	var MILLIS_IN_DAY = 86400000;
+	var MILLIS_IN_HOUR = 3600000;
+	var MILLIS_IN_MINUTE = 60000;
+	var MILLIS_IN_SECOND = 1000;
 	
-	const SECONDS_IN_DAY = 86400;
-	const SECONDS_IN_HOUR = 3600;
-	const SECONDS_IN_MINUTE = 60;
-	const MINUTES_IN_DAY = SECONDS_IN_DAY / 60;
-	const MINUTES_IN_HOUR = 60;
-	const HOURS_IN_DAY = 24;
-	const MONTHS_IN_YEAR = 12;
+	var SECONDS_IN_DAY = 86400;
+	var SECONDS_IN_HOUR = 3600;
+	var SECONDS_IN_MINUTE = 60;
+	var MINUTES_IN_DAY = SECONDS_IN_DAY / 60;
+	var MINUTES_IN_HOUR = 60;
+	var HOURS_IN_DAY = 24;
+	var MONTHS_IN_YEAR = 12;
 	
-	const MIN_SUSPEND_THRESHOLD = 50; // standard threshold
-	const SUSPEND_THRESHOLD_RELAX_STEP = 100; // temporarly increment threshold by this value
-	const SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
+	var MIN_SUSPEND_THRESHOLD = 50; // standard threshold
+	var SUSPEND_THRESHOLD_RELAX_STEP = 100; // temporarly increment threshold by this value
+	var SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -459,7 +459,7 @@
 			var monthsEnd = new Date(dateTo.valueOf() - daysDiff * MILLIS_IN_DAY - timeSpan);
 			var monthsSpan = monthsEnd.valueOf() - yearsEnd.valueOf();
 			
-			// construct resulting values
+			// varruct resulting values
 			var result = {
 					/*
 					years : null,
@@ -1241,7 +1241,7 @@
 				if(!unit) {
 					unit = label_key;
 				}
-				// constuct label id - it will be used as label_min_widths key and for fast
+				// varuct label id - it will be used as label_min_widths key and for fast
 				// access to label attributes
 				label_id = this.options.id + '-' + unit + '-label';
 				
@@ -1335,6 +1335,14 @@
 		responsiveAdjust : function(/*width*/) {
 			var responsive = this.options.responsive;
 			var counter_container = $('#' + this.options.id), i, scale = 1.0, self = this;
+			
+			// page layout changes during responsive adjust procedure and in some browsers
+			// can cause accidental scroll to window top. We fix the height of the module
+			// as a workaround. Later we reset fixed height - IMPORTANT: height rule in
+			// module style(s) setting will be discarded. Check if this is an important limitation...
+			
+			var height = counter_container.height();
+			counter_container.css('height', height);
 			
 			if(responsive && responsive.length > 0) {
 				// responsive behavior
@@ -1452,6 +1460,9 @@
 			}
 			// update layout for new base font size
 			this.setRowVerticalAlign();
+			
+			// reset fixed height (accidental scroll workaround)
+			counter_container.css('height', '');
 		},
 		
 		checkWrapping : function(units) {

@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 4.0
 Tested up to: 4.3
-Stable tag: 1.3.8
+Stable tag: 1.3.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -53,7 +53,7 @@ Extract the zip file and just drop the contents in the wp-content/plugins/ direc
 <http://smartcalc.es/wp/index.php/installing-more-animations/> - detailed instructions on installing additional animation profiles.
 
 = I have installed the plugin, but Smart Countdown FX doesn't appear in available widgets list. =
-Do not forget to active the plugin after installation.
+Do not forget to activate the plugin after installation.
 
 = I have configured the widget but it is not displayed. =
 Please, check "Counter display mode" setting in the widget options. If "Auto - both countdown and countup" is not selected, the widget might have been automatically hidden because the event is still in the future or already in the past.
@@ -71,6 +71,11 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.3.9 =
+
+* Bug fix - internet explorer gave error on "const" keyword in javascript. Corrected in this version.
+* Bug fix - responsive adjust caused momentary page scroll in some configurations
 
 = 1.3.8 =
 
