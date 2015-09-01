@@ -1,0 +1,249 @@
+# WordPress Blank Pot
+# Copyright (C) 2014 ...
+# This file is distributed under the GNU General Public License v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WordPress Blank Pot v1.0.0\n"
+"Report-Msgid-Bugs-To: Translator Name <translations@example.com>\n"
+"POT-Creation-Date: 2015-05-17 18:01+0100\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Your Name <you@example.com>\n"
+"Language-Team: Your Team <translations@example.com>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Textdomain-Support: yesX-Generator: Poedit 1.6.4\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;esc_html_e;esc_html_x:1,2c;esc_html__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_attr__;_ex:1,2c;_nx:4c,1,2;_nx_noop:4c,1,2;"
+"_x:1,2c;_n:1,2;_n_noop:1,2;__ngettext:1,2;__ngettext_noop:1,2;_c,"
+"_nc:4c,1,2\n"
+"X-Poedit-Basepath: ../\n"
+"X-Generator: Poedit 1.7.6\n"
+"X-Poedit-SearchPath-0: .\n"
+
+#: includes/helper.php:616
+msgid "years"
+msgstr ""
+
+#: includes/helper.php:617
+msgid "months"
+msgstr ""
+
+#: includes/helper.php:618
+msgid "weeks"
+msgstr ""
+
+#: includes/helper.php:619
+msgid "days"
+msgstr ""
+
+#: includes/helper.php:620
+msgid "hours"
+msgstr ""
+
+#: includes/helper.php:621
+msgid "minutes"
+msgstr ""
+
+#: includes/helper.php:622
+msgid "seconds"
+msgstr ""
+
+#: includes/plurals.php:12 includes/plurals.php:13 includes/plurals.php:14
+msgid "Second"
+msgid_plural "Seconds"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:15 includes/plurals.php:16 includes/plurals.php:17
+msgid "Minute"
+msgid_plural "Minutes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:18 includes/plurals.php:19 includes/plurals.php:20
+msgid "Hour"
+msgid_plural "Hours"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:21 includes/plurals.php:22 includes/plurals.php:23
+msgid "Day"
+msgid_plural "Days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:24 includes/plurals.php:25 includes/plurals.php:26
+msgid "Week"
+msgid_plural "Weeks"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:27 includes/plurals.php:28 includes/plurals.php:29
+msgid "Month"
+msgid_plural "Months"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/plurals.php:30 includes/plurals.php:31 includes/plurals.php:32
+msgid "Year"
+msgid_plural "Years"
+msgstr[0] ""
+msgstr[1] ""
+
+#: smartcountdownfx.php:76
+msgid "Responsive Countdown / countup widget."
+msgstr "This is a translation for Responsive Countdown / countup widget."
+
+#: smartcountdownfx.php:77 smartcountdownfx.php:620
+msgid "Smart Countdown FX"
+msgstr ""
+
+#: smartcountdownfx.php:308
+msgid "Title:"
+msgstr ""
+
+#: smartcountdownfx.php:310
+msgid "Event date and time:"
+msgstr ""
+
+#: smartcountdownfx.php:312
+msgid "Counter display mode:"
+msgstr ""
+
+#: smartcountdownfx.php:317
+msgid "Auto - both countdown and count up"
+msgstr ""
+
+#: smartcountdownfx.php:318
+msgid "Only before event (countdown)"
+msgstr ""
+
+#: smartcountdownfx.php:319
+msgid "Countdown - no limit"
+msgstr ""
+
+#: smartcountdownfx.php:320 smartcountdownfx.php:321 smartcountdownfx.php:322
+#: smartcountdownfx.php:323 smartcountdownfx.php:324
+#, php-format
+msgid "Show counter %s before event"
+msgstr ""
+
+#: smartcountdownfx.php:320 smartcountdownfx.php:321 smartcountdownfx.php:322
+#: smartcountdownfx.php:328 smartcountdownfx.php:329
+#, php-format
+msgid "%d hour"
+msgid_plural "%d hours"
+msgstr[0] ""
+msgstr[1] ""
+
+#: smartcountdownfx.php:323
+#, php-format
+msgid "%d day"
+msgid_plural "%d days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: smartcountdownfx.php:324 smartcountdownfx.php:330
+#, php-format
+msgid "%d week"
+msgid_plural "%d weeks"
+msgstr[0] ""
+msgstr[1] ""
+
+#: smartcountdownfx.php:326
+msgid "Only after event (count up)"
+msgstr ""
+
+#: smartcountdownfx.php:327
+msgid "Count up - no limit"
+msgstr ""
+
+#: smartcountdownfx.php:328 smartcountdownfx.php:329 smartcountdownfx.php:330
+#, php-format
+msgid "Hide counter %s after event"
+msgstr ""
+
+#: smartcountdownfx.php:336
+msgid "Title before counter for countdown mode"
+msgstr ""
+
+#: smartcountdownfx.php:338
+msgid "Title after counter for countdown mode"
+msgstr ""
+
+#: smartcountdownfx.php:340
+msgid "Title before counter for count up mode"
+msgstr ""
+
+#: smartcountdownfx.php:342
+msgid "Title after counter for count up mode"
+msgstr ""
+
+#: smartcountdownfx.php:344
+msgid "Counter animation profile:"
+msgstr ""
+
+#: smartcountdownfx.php:351
+msgid "Widget layout preset:"
+msgstr ""
+
+#: smartcountdownfx.php:359
+msgid "Use titles for count up mode as \"Time has arrived\" message"
+msgstr ""
+
+#: smartcountdownfx.php:360
+msgid "Display counter units:"
+msgstr ""
+
+#: smartcountdownfx.php:361
+msgid "Text before counter font size:"
+msgstr ""
+
+#: smartcountdownfx.php:368
+msgid "Text after counter font size:"
+msgstr ""
+
+#: smartcountdownfx.php:375
+msgid "Counter digits size:"
+msgstr ""
+
+#: smartcountdownfx.php:382
+msgid "Counter labels size:"
+msgstr ""
+
+#: smartcountdownfx.php:389
+msgid "Widget style - CSS rules separated and ended with a semicolon:"
+msgstr ""
+
+#: smartcountdownfx.php:391
+msgid ""
+"Text before counter style - CSS rules separated and ended with a semicolon:"
+msgstr ""
+
+#: smartcountdownfx.php:393
+msgid ""
+"Text after counter style - CSS rules separated and ended with a semicolon:"
+msgstr ""
+
+#: smartcountdownfx.php:395
+msgid "Counter digits style - CSS rules separated and ended with a semicolon:"
+msgstr ""
+
+#: smartcountdownfx.php:397
+msgid "Counter labels style - CSS rules separated and ended with a semicolon:"
+msgstr ""
+
+#: smartcountdownfx.php:638
+#, php-format
+msgid "Smart Countdown FX requires WordPress %s or higher."
+msgstr ""
+
+#~ msgid "Event text will go here for ID:"
+#~ msgstr "Traducción título del evento"
+
+#~ msgid "Event text will go here for ID: "
+#~ msgstr "Great translation for event text"
