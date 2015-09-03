@@ -1,5 +1,5 @@
 /**
- * version 1.3.9
+ * version 1.4
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -670,7 +670,7 @@
 			// be updated
 			var values = {
 					'prev' : old_value.split(''),
-					'next' : new_value.split(''),
+					'next' : new_value.split('')
 			};
 			
 			for(i = 0; i < values['next'].length; i++) {
@@ -1609,7 +1609,10 @@
 							}
 							
 							// convert deadline to javascript Date
-							self.options.deadline = new Date(new Date(self.options.deadline).getTime()).toString();
+							//self.options.deadline = new Date(new Date(self.options.deadline).getTime()).toString();
+							
+							// compatibility with IE8
+							self.options.deadline = new Date(self.tsFromISO(self.options.deadline)).toString();
 
 							scds_container.setServerTime(response.options.now);
 							
@@ -1646,6 +1649,34 @@
 					
 					$('#' + self.options.id + ' .scd-all-wrapper').show();
 				});
+		},
+		// parse date for older browsers
+		tsFromISO : function(s) {
+			var D = new Date(s);
+			if(isNaN(D.getTime())) {
+				var day, tz,
+	            rx=/^(\d{4}\-\d\d\-\d\d([tT ][\d:\.]*)?)([zZ]|([+\-])(\d\d):(\d\d))?$/,
+	            p= rx.exec(s) || [];
+	            if(p[1]){
+	                day= p[1].split(/\D/);
+	                for(var i= 0, L= day.length; i<L; i++){
+	                    day[i]= parseInt(day[i], 10) || 0;
+	                };
+	                day[1]-= 1;
+	                day= new Date(Date.UTC.apply(Date, day));
+	                if(!day.getDate()) return NaN;
+	                if(p[5]){
+	                    tz= (parseInt(p[5], 10)*60);
+	                    if(p[6]) tz+= parseInt(p[6], 10);
+	                    if(p[4]== '+') tz*= -1;
+	                    if(tz) day.setUTCMinutes(day.getUTCMinutes()+ tz);
+	                }
+	                return day.getTime();
+	            }
+	            return NaN;
+			} else {
+				return D.getTime();
+			}
 		}
 	}
 })(jQuery);

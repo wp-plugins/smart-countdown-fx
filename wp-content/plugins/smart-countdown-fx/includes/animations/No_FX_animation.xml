@@ -9,6 +9,7 @@
 			<style name="height" unit="em" value="1" />
 			<style name="line-height" unit="em" value="1.0" />
 			<style name="width" unit="em" value="0.6" />
+			<style name="overflow" unit="" value="visible" />
 		</styles>
 		<modes>
 			<mode name="down">

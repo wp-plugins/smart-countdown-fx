@@ -2,7 +2,12 @@
 <config
 	name="Sliding text with overflow"
 	description="Scalable. Overflow visible with fade-in/fade-out">
-	<!-- for italic fonts use sliding_text_fade_italic.xml -->
+	<!--
+		This profile uses italic font for digits. The only way to make opacity work on italic digits (they are
+		partially outside parent div) is to set overflow visible and make each digit div wider by setting
+		negative right and compensate it with negative left margin, so that the distance between digits and
+		labels remain visually normal
+	-->
 	<digit scope="*">
 		<styles>
 			<style name="font-size" unit="px" value="60" scalable="1" />
@@ -10,6 +15,7 @@
 			<style name="width" unit="em" value="0.6" scalable="0" />
 			<style name="line-height" unit="em" value="1.0" />
 			<style name="overflow" unit="" value="visible" />
+			<style name="font-style" unit="" value="italic" />
 		</styles>
 		<modes>
 			<mode name="down">
@@ -22,8 +28,8 @@
 						<styles>
 							<top>70%</top>
 							<left>-10000px</left>
-							<right>0</right>
-							<margin>0 auto</margin>
+							<right>-0.2em</right>
+							<margin>0 auto 0 -0.2em</margin>
 							<text-align>center</text-align>
 						</styles>	
 						<tweens>
@@ -40,8 +46,8 @@
 						<styles>
 							<top>0</top>
 							<left>0</left>
-							<right>0</right>
-							<margin>0 auto</margin>
+							<right>-0.2em</right>
+							<margin>0 auto 0 -0.2em</margin>
 							<text-align>center</text-align>
 						</styles>	
 						<tweens>
@@ -72,8 +78,8 @@
 						<styles>
 							<top>-70%</top>
 							<left>-10000px</left>
-							<right>0</right>
-							<margin>0 auto</margin>
+							<right>-0.2em</right>
+							<margin>0 auto 0 -0.2em</margin>
 							<text-align>center</text-align>
 						</styles>	
 						<tweens>
@@ -90,8 +96,8 @@
 						<styles>
 							<top>0</top>
 							<left>0</left>
-							<right>0</right>
-							<margin>0 auto</margin>
+							<right>-0.2em</right>
+							<margin>0 auto 0 -0.2em</margin>
 							<text-align>center</text-align>
 						</styles>		
 						<tweens>
