@@ -1,5 +1,5 @@
 /**
- * version 1.4
+ * version 1.4.1
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -18,6 +18,8 @@
 	var MIN_SUSPEND_THRESHOLD = 50; // standard threshold
 	var SUSPEND_THRESHOLD_RELAX_STEP = 100; // temporarly increment threshold by this value
 	var SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
+	
+	var WINDOW_RESIZE_EVENT_DELAY = 500; // avoid massive resize events
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -51,10 +53,9 @@
 					clearTimeout($.data(this, 'resizeTimer'));
 					$.data(this, 'resizeTimer', setTimeout(function() {
 						scds_container.responsiveAdjust();
-					}, 100));
+					}, WINDOW_RESIZE_EVENT_DELAY));
 				});
 			}
-			
 		},
 		remove : function(id) {
 			delete(scds_container.instances[id]);

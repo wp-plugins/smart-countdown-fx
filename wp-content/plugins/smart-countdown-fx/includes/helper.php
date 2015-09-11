@@ -528,7 +528,7 @@ abstract class SmartCountdown_Helper {
 		}
 		if (! file_exists ( $file_name )) {
 			// fallback to default animation profile (e.g. for misprints in shortcode)
-			$file_name = dirname ( __FILE__ ) . '/animations/Sliding_text_fade.xml';
+			$file_name = dirname ( __FILE__ ) . '/animations/No_FX_animation.xml';
 		}
 		if (file_exists ( $file_name )) {
 			$xml = file_get_contents ( $file_name );
