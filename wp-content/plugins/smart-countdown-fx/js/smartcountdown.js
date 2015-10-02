@@ -1,5 +1,5 @@
 /**
- * version 1.4.1
+ * version 1.4.2
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -341,6 +341,11 @@
 			}
 			
 			var new_values = this.getCounterValues();
+			
+			// in countdown-only and countdown-to-end modes "deadlineReached" requires
+			// immediate query for the next event (call to getCounterValues() method has
+			// already changed counter mode to "up")
+			this.applyCounterLimits();
 
 			// Force animations re-init in new mode.
 			this.updateCounter(new_values, true);
