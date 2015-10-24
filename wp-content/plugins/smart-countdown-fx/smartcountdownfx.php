@@ -5,7 +5,7 @@
  * Domain Path: /languages
  * Plugin URI: http://smartcalc.es/wp
  * Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
- * Version: 1.4.2
+ * Version: 1.4.3
  * Author: Alex Polonski
  * Author URI: http://smartcalc.es/wp
  * License: GPLv2 or later

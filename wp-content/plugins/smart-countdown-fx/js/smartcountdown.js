@@ -1,5 +1,5 @@
 /**
- * version 1.4.2
+ * version 1.4.3
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -189,6 +189,11 @@
 			// value when requesting next event. this.options.countup_limit will change
 			// during counter life to indicate the next query interval
 			this.options.original_countup_limit = this.options.countup_limit;
+			
+			// backup deadline as set in configuration - it is converted to ISO format and
+			// if sent back to server to query next event in "customize preview" mode can
+			// result in DateTime format error
+			this.options.original_deadline = this.options.deadline;
 			
 			// get next event from server
 			this.queryNextEvent(true);
@@ -1520,7 +1525,7 @@
 			};
 			if(this.options.shortcode == 1) {
 				// shortcode - include required options in query
-				queryData.deadline = this.options.deadline;
+				queryData.deadline = this.options.original_deadline;
 				queryData.import_config = this.options.import_config;
 				queryData.countdown_to_end = this.options.countdown_to_end;
 				// we have to add countup limit from original settings to query data.
@@ -1536,10 +1541,11 @@
 				// settings
 				if(this.options.customize_preview == 1) {
 					queryData.customize_preview = 1;
-					queryData.deadline = this.options.deadline;
+					queryData.deadline = this.options.original_deadline;
 					queryData.import_config = this.options.import_config || '';
 					queryData.countdown_limit = this.options.countdown_limit;
-					queryData.countup_limit = this.options.countup_limit;
+					// we have to add countup limit from original settings to query data.
+					queryData.countup_limit = this.options.original_countup_limit;
 				}
 			}
 			
@@ -1615,14 +1621,14 @@
 							}
 							
 							// convert deadline to javascript Date
-							//self.options.deadline = new Date(new Date(self.options.deadline).getTime()).toString();
-							
 							// compatibility with IE8
 							self.options.deadline = new Date(self.tsFromISO(self.options.deadline)).toString();
 
 							scds_container.setServerTime(response.options.now);
-							
 							self.updateCounter(self.getCounterValues());
+							
+							// We have to set counter mode limits after setting up a new event
+							self.applyCounterLimits();
 							
 							// widget registration in container is
 							// required only for the first event query, switching
@@ -1643,7 +1649,7 @@
 								window.location = self.options.redirect_url;
 							}
 							
-							// We have to set counter mode limits and units display after setting up a new event
+							// We have to set units display after setting up a new event
 							self.setCounterUnitsVisibility(self.current_values);
 						} else {
 							// error

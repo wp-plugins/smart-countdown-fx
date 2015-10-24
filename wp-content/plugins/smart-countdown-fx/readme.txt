@@ -3,7 +3,7 @@ Contributors: alex3493
 Tags: countdown, counter, count down, timer, event, widget, years, months, FX, animated, responsive, recurring
 Requires at least: 4.0
 Tested up to: 4.3
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=6C2YULBJW68M6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -72,6 +72,11 @@ Check the spelling of "fx_preset" attribute (if you includeded it in attributes 
 4. "Time has arrived!" message
 
 == Changelog ==
+
+= 1.4.3 =
+
+* Bug fix - counter appeared momentary before being hidden if counter display mode selected had limitations on
+display time before / after event
 
 = 1.4.2 =
 
