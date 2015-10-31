@@ -1,5 +1,5 @@
 /**
- * version 1.4.3
+ * version 1.4.4
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -176,6 +176,7 @@
 		},
 		current_values : {},
 		elements : {},
+		animation_timers : {},
 		
 		init : function(options) {
 			$.extend(true, this.options, options);
@@ -616,6 +617,13 @@
 				this.initDisplay = true;
 				this.current_values = new_values;
 			}
+			// in initDisplay mode we have to abort all running and queued animations
+			if(this.initDisplay) {
+				for(key in this.animation_timers) {
+					window.clearTimeout(this.animation_timers[key]);
+				}
+				this.animation_timers = {};
+			}
 			prev = this.current_values;
 			next = new_values;
 			
@@ -931,8 +939,9 @@
 					if(duration > 0) {
 						// even timeout zero causes animations on init, so if group duration = 0
 						// we increment cur_element_index directly and proceed to next group if
-						// required.
-						window.setTimeout(function() {
+						// required. Store timeout system id, so that it can be cleared explicitly
+						// in "initDisplay" mode
+						this.animation_timers[prefix + group_index] = window.setTimeout(function() {
 							cur_element_index++;
 							if(cur_element_index >= elements_count) {
 								self.animateGroup(values, group_index + 1, prefix, groups);
@@ -970,7 +979,9 @@
 			if(!group_processed) {
 				// empty group or a group containing only 'static-bg' elements.
 				// In some animations this kind of a group serves as a pause in animations queue
-				window.setTimeout(function() {
+				// Store timeout system id, so that it can be cleared explicitly
+				// in "initDisplay" mode
+				this.animation_timers[prefix + group_index] = window.setTimeout(function() {
 					self.animateGroup(values, group_index + 1, prefix, groups);
 				}, duration);
 			}
@@ -1034,7 +1045,7 @@
 				for(i = 0; i < assets.length; i++) {
 					index = $.inArray(assets[i], hide_units);
 					if(index == -1) {
-						is_non_zero = is_non_zero + new_values[assets[i]];
+						is_non_zero = is_non_zero + (new_values[assets[i]] || 0);
 						lowest_displayed_unit = i;
 					}
 				}
@@ -1064,7 +1075,7 @@
 						continue;
 					}
 					lowest_displayed_unit = i;
-					if(new_values[assets[i]] == 0) {
+					if((new_values[assets[i]] || 0) == 0) {
 						if($.inArray(assets[i], hide_units) == -1) {
 							hide_units.push(assets[i]);
 						}
@@ -1417,7 +1428,6 @@
 						break;
 					}
 				}
-				
 				// we have alternative layout applied
 				
 				// prepare to repeat measurement with updated layout - reset base font

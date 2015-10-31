@@ -16,11 +16,11 @@
 	<hide_highest_zeros>1</hide_highest_zeros>
 	<allow_all_zeros>0</allow_all_zeros>
 	<responsive value="1">
-		<scale value="0.5">
+		<scale value="0.3">
 			<layout>vert</layout>
 			<labels_pos>col</labels_pos>
 		</scale>
-		<scale value="0.65">
+		<scale value="0.5">
 			<layout>vert</layout>
 			<labels_pos>row</labels_pos>
 		</scale>
