@@ -1,5 +1,5 @@
 /**
- * version 1.4.5
+ * version 1.4.6
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -1145,20 +1145,34 @@
 					hide_units.pop();
 				}
 			}
+			// optimize performance: only call responsiveAdjust of counter
+			// layout actually changes
+			var unitsChanged = false;
 			
 			// apply calculated hide_units configuration
 			var self = this;
 			$.each(this.options.units, function(asset, display) {
 				var unit_wrapper = $('#' + self.options.id + '-' + asset);
 				if(display == 1 && $.inArray(asset, hide_units) == -1) {
+					if(!unit_wrapper.is(':visible')) {
+						// hidden => visible
+						unitsChanged = true;
+					}
 					unit_wrapper.show();
 				} else {
+					if(unit_wrapper.is(':visible')) {
+						// visible => hidden
+						unitsChanged = true;
+					}
 					unit_wrapper.hide();
 				}
 			});
 			
-			this.setRowVerticalAlign();
-			this.responsiveAdjust();
+			if(unitsChanged) {
+				// only apply responsive if counter units set has changed
+				this.setRowVerticalAlign();
+				this.responsiveAdjust();
+			}
 			
 			var counter_container = $('#' + this.options.id);
 
