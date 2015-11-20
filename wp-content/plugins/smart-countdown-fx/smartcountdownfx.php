@@ -5,7 +5,7 @@
  * Domain Path: /languages
  * Plugin URI: http://smartcalc.es/wp
  * Description: Display and configure multiple Smart Countdown FX animated timers using a shortcode or sidebar widget.
- * Version: 1.4.4
+ * Version: 1.4.5
  * Author: Alex Polonski
  * Author URI: http://smartcalc.es/wp
  * License: GPLv2 or later
@@ -596,11 +596,19 @@ class SmartCountdown_Widget extends WP_Widget {
 	public static function counter_scripts() {
 		$plugin_url = plugins_url () . '/' . dirname ( plugin_basename ( __FILE__ ) );
 		
+		/* only required by jQuery animations
 		// this script is required for extended animation easing
 		wp_register_script ( 'easing-script', $plugin_url . '/js/vendor/jquery-ui-easing.min.js', array (
 				'jquery' 
 		) );
 		wp_enqueue_script ( 'easing-script' );
+		*/
+		
+		// optimized animation library
+		wp_register_script ( 'velocity-script', $plugin_url . '/js/vendor/velocity.min.js', array (
+				'jquery'
+		) );
+		wp_enqueue_script ( 'velocity-script' );
 		
 		wp_register_script ( 'smartcountdown-counter-script', $plugin_url . '/js/smartcountdown.js', array (
 				'jquery' 
@@ -678,6 +686,7 @@ class SmartCountdown_Widget extends WP_Widget {
 					if (! empty ( $_REQUEST ['customize_preview'] )) {
 						$instance ['deadline'] = esc_attr ( $_REQUEST ['deadline'] );
 						$instance ['import_config'] = esc_attr ( $_REQUEST ['import_config'] );
+						$instance ['countdown_to_end'] = ( int ) $_REQUEST ['countdown_to_end'];
 						$instance ['countdown_limit'] = ( int ) $_REQUEST ['countdown_limit'];
 						$instance ['countup_limit'] = ( int ) $_REQUEST ['countup_limit'];
 					}

@@ -1,6 +1,6 @@
 <?php
 /*
- * Version: 1.2.3
+ * Version: 1.4.5
  * Author: Alex Polonski
  * Author URI: http://smartcalc.es
  * License: GPL2
@@ -84,9 +84,9 @@ abstract class SmartCountdown_Helper {
 									'add' => 'scd-counter-row' 
 							) 
 					) 
-			)
-			 
-	);
+			) 
+	)
+	;
 	public static function getCounterConfig($instance) {
 		if (! empty ( $instance ['layout_preset'] )) {
 			$file_name = dirname ( __FILE__ ) . '/layouts/' . $instance ['layout_preset'];
@@ -266,8 +266,8 @@ abstract class SmartCountdown_Helper {
 	
 	/**
 	 *
-	 * @param
-	 *        	array - original $instance
+	 * @param array $instance
+	 *        	- original instance
 	 * @param integer $now_ts
 	 *        	- current UTC timestamp
 	 * @return array - updated instance
@@ -289,70 +289,260 @@ abstract class SmartCountdown_Helper {
 			return $instance;
 		}
 		
-		// Plain events array
-		$events = array ();
+		$is_countdown_to_end = $instance ['countdown_to_end'];
+		if ($is_countdown_to_end) {
+			$countup_limit = - 1;
+		} else {
+			$countup_limit = $instance ['countup_limit'];
+		}
+		
+		// Plain events arrays
+		$current_events = array ();
+		$future_events = array ();
 		
 		// merge events from all providers. For now there is no difference which
 		// import plugin events comes from
 		foreach ( $instance ['imported'] as /*$provider =>*/ $group ) {
-			foreach ( $group as $event ) {
-				$events [] = $event;
+			foreach ( $group as $i => &$event ) {
+				// convert imported deadline to timestamp
+				$deadline = new DateTime ( $event ['deadline'] );
+				$event ['deadline'] = $deadline->format ( 'U' );
+				
+				// ===== old import modules handle "countdown to end mode" creating two events with
+				// duration zero, setting 'is_countdown_to_end' flag for the second event and
+				// its deadline as first event deadline + first event imported duration.
+				// For each group such events always go one after another in unsorted timeline,
+				// so we can detect CTE simutation events pair
+				if (isset ( $group [$i + 1] ) && ! empty ( $group [$i + 1] ['is_countdown_to_end'] )) {
+					// if we have next event and it is CTE, modify current event setting its
+					// 'is_countdown_to_end' flag and correct duration (recover it from difference
+					// in deadlines)
+					$event ['is_countdown_to_end'] = 1;
+					
+					$d_next = new DateTime ( $group [$i + 1] ['deadline'] );
+					$event ['duration'] = $d_next->format ( 'U' ) - $event ['deadline'];
+					// mark next event as processed - it shouldn't be added to timeline
+					$group [$i + 1] ['skip_event'] = 1;
+				}
+				if (! empty ( $group [$i] ['skip_event'] )) {
+					// this event was already processed, discard it
+					continue;
+				}
+				// end old plugins compatibility code =====
+				
+				// separate and filter events
+				if ($event ['deadline'] <= $now_ts) {
+					// event already started
+					if ($event ['duration'] >= 0) {
+						$duration_filter = $countup_limit >= 0 ? min ( $countup_limit, $event ['duration'] ) : $event ['duration'];
+						if ($event ['deadline'] + $duration_filter > $now_ts) {
+							$current_events [] = $event;
+						}
+					} else {
+						// we are interested in all started events which have no end date
+						$current_events [] = $event;
+					}
+				} elseif ($event ['deadline'] > $now_ts) {
+					// we are interested in all future events
+					$future_events [] = $event;
+				}
+				// finished events are discarded
 			}
 		}
 		
 		// Structured events. Each deadline will be an array of events, keyed and sorted
-		// by their end time
-		$timeline = array ();
+		// by their end time (normal) or start time (CTE)
 		
-		foreach ( $events as &$event ) {
-			$deadline = new DateTime ( $event ['deadline'] );
-			$event_start_ts = $deadline->format ( 'U' );
+		$current_events = self::groupEvents ( $current_events, 'current', $is_countdown_to_end );
+		$future_events = self::groupEvents ( $future_events, 'future', false );
+		
+		if ($is_countdown_to_end) {
+			// CTE (countdown-to-end) mode
+			if (! empty ( $current_events )) {
+				// closest event(s) end time is the deadline
+				$event_end_times = array_keys ( $current_events );
+				$deadline_ts = $event_end_times [0];
+				
+				// get events group (for overlapping events)
+				$events = reset ( $current_events );
+				$event_start_times = array_keys ( $events );
+				
+				// if there are future events we need the closest event start to
+				// set countdown limit - when this limit is reached we must repeat event query
+				$countdown_query_limit = 0;
+				if (! empty ( $future_events )) {
+					// future events are always grouped by start dates
+					$event_start_times = array_keys ( $future_events );
+					$countdown_query_limit = $deadline_ts - $event_start_times [0];
+					if ($countdown_query_limit < 0) {
+						// if the closest future event start after the current events finish
+						// we ignore the difference
+						$countdown_query_limit = 0;
+					}
+				}
+				$countdown_to_end = 1;
+			} elseif (! empty ( $future_events )) {
+				$event_start_times = array_keys ( $future_events );
+				$deadline_ts = $event_start_times [0];
+				
+				$events = reset ( $future_events );
+				$event_end_times = array_keys ( $events );
+				
+				if (isset ( $event_start_times [1] )) {
+					// limit countup to next event start and event duration
+					$max_countup_limit = min ( $event_start_times [1], $event_end_times [0] ) - $deadline_ts;
+				} else {
+					// no more events - limit countup to event duration only
+					$max_countup_limit = $event_end_times [0] - $deadline_ts;
+				}
+				
+				// we have only future events. In CTE mode we must repeat event query once
+				// the deadline is reached
+				$countdown_query_limit = 0;
+				$countdown_to_end = 0;
+			}
+		} else {
+			$current_event_start_times = array_keys ( $current_events );
+			$future_event_start_times = array_keys ( $future_events );
 			
-			// calculate event end time
-			if ($instance ['countup_limit'] > 0) {
-				// explicit up limit, don't depend on duration
-				$event_end_ts = $event_start_ts + $instance ['countup_limit'];
-			} elseif ($instance ['countup_limit'] == - 1) {
-				// automatic up limit, use event duration as is
-				$event_end_ts = $event_start_ts + $event ['duration'];
-			} else {
-				// for countup_limit == 0 we leave event end = event start,
-				// i.e. duration 0
-				$event_end_ts = $event_start_ts;
+			// normal mode
+			if (! empty ( $current_events )) {
+				// most recently started event(s) start time is the deadline
+				$deadline_ts = $current_event_start_times [0];
+				
+				// get events group (for overlapping events)
+				$events = reset ( $current_events );
+				$event_end_times = array_keys ( $events );
+				
+				if (! empty ( $future_events )) {
+					// limit countup to next event start and event duration
+					$max_countup_limit = min ( $future_event_start_times [0], $event_end_times [0] ) - $deadline_ts;
+				} else {
+					// no more events - limit countup to event duration only
+					$max_countup_limit = $event_end_times [0] - $deadline_ts;
+				}
+			} elseif (! empty ( $future_events )) {
+				// we have only future events
+				// the closest future event(s) start time is the deadline
+				$deadline_ts = $future_event_start_times [0];
+				
+				$events = reset ( $future_events );
+				$event_end_times = array_keys ( $events );
+				
+				if (isset ( $future_event_start_times [1] )) {
+					// limit countup to next event start and event duration
+					$max_countup_limit = min ( $future_event_start_times [1], $event_end_times [0] ) - $deadline_ts;
+				} else {
+					// no more events - limit countup to event duration only
+					$max_countup_limit = $event_end_times [0] - $deadline_ts;
+				}
 			}
 			
-			// discard finished events. If events are finished we break here and no
-			// event_start_ts group will be create in the timeline
-			if ($event_end_ts <= $now_ts) {
+			// adjust countup_limit
+			if ($countup_limit >= 0) {
+				$countup_limit = min ( $countup_limit, $max_countup_limit );
+			} else {
+				$countup_limit = $max_countup_limit;
+			}
+			// no CTE in normal mode
+			$countdown_to_end = 0;
+			$countdown_query_limit = - 1;
+		}
+		
+		if (empty ( $events )) {
+			// no events found, cannot proceed
+			$instance ['deadline'] = '';
+			return $instance;
+		}
+		
+		$redirect_url = null;
+		$concat_title = array ();
+		
+		foreach ( $events as &$event ) {
+			if (empty ( $redirect_url ) && ! empty ( $event ['redirect_url'] )) {
+				$redirect_url = $event ['redirect_url'];
+			}
+			self::concatTitles ( $concat_title, $event );
+		}
+		
+		// join titles to a string (may be empty string if no titles found)
+		$concat_title = implode ( ', ', $concat_title );
+		$instance ['imported_title'] = $concat_title;
+		
+		$deadline = new DateTime ();
+		$deadline->setTimestamp ( $deadline_ts );
+		$instance ['deadline'] = $deadline->format ( 'c' );
+		$instance ['is_countdown_to_end'] = $countdown_to_end;
+		if (! empty ( $redirect_url )) {
+			$instance ['redirect_url'] = $redirect_url;
+		} else {
+			$instance ['redirect_url'] = '';
+		}
+		$instance ['countup_limit'] = $countup_limit;
+		$instance ['countdown_query_limit'] = $countdown_query_limit;
+		
+		unset ( $instance ['imported'] );
+		
+		return $instance;
+	}
+	private static function groupEvents($unsorted, $events_type, $is_countdown_to_end = false) {
+		$timeline = array ();
+		foreach ( $unsorted as $event ) {
+			if ($is_countdown_to_end && $event ['duration'] == - 1) {
+				// no countdown-to-end for events with no end date
 				continue;
 			}
 			
-			// set effective event duration
-			$event ['duration'] = $event_end_ts - $event_start_ts;
-			
-			// create group by start time (if not exists)
-			if (! isset ( $timeline [$event_start_ts] )) {
-				$timeline [$event_start_ts] = array ();
+			$event_start_ts = $event ['deadline'];
+			if ($event ['duration'] >= 0) {
+				$event_end_ts = $event ['deadline'] + $event ['duration'];
+			} else {
+				$event_end_ts = PHP_INT_MAX;
 			}
 			
-			// make sure we have unique $event_end_ts key: otherwise if there are fully overlapping
-			// events the last event data will overwrite the previous one(s) which will be lost
-			while ( isset ( $timeline [$event_start_ts] [$event_end_ts] ) ) {
-				$event_end_ts = '0' . $event_end_ts;
+			if ($is_countdown_to_end) {
+				// for countdown-to-end mode group events by end date
+				if (! isset ( $timeline [$event_end_ts] )) {
+					$timeline [$event_end_ts] = array ();
+				}
+				// make sure we have unique $event_start_ts key: otherwise if there are fully overlapping
+				// events the last event data will overwrite the previous one(s) which will be lost
+				while ( isset ( $timeline [$event_end_ts] [$event_start_ts] ) ) {
+					$event_start_ts = '0' . $event_start_ts;
+				}
+				// add event to timeline
+				$timeline [$event_end_ts] [$event_start_ts] = $event;
+			} else {
+				// for normal mode group events by start date
+				if (! isset ( $timeline [$event_start_ts] )) {
+					$timeline [$event_start_ts] = array ();
+				}
+				// make sure we have unique $event_end_ts key: otherwise if there are fully overlapping
+				// events the last event data will overwrite the previous one(s) which will be lost
+				while ( isset ( $timeline [$event_start_ts] [$event_end_ts] ) ) {
+					$event_end_ts = '0' . $event_end_ts;
+				}
+				// add event to timeline
+				$timeline [$event_start_ts] [$event_end_ts] = $event;
 			}
-			
-			// add event to timeline
-			$timeline [$event_start_ts] [$event_end_ts] = $event;
 		}
 		
-		// we have our timeline array of arrays, no need for plain events array any more
-		unset ( $events );
+		if ($is_countdown_to_end) {
+			$events = self::sortEvents ( $timeline, 'asc' );
+		} else {
+			$events = self::sortEvents ( $timeline, $events_type == 'future' ? 'asc' : 'desc' );
+		}
+		return $events;
+	}
+	private static function sortEvents($timeline, $sort_external = 'asc') {
+		// Sort each group
 		
 		// user-defined sort function: for numerically distinct values
-		// we compare numerically, for zero-padded values we compare string length -
+		// we compare numerically, for zero-padded trick values we compare string length -
 		// very easy but effective - the only difference is the number of zeros prepended
-		// to the value, so this will do the trick - the shortest (i.e. added first) value
-		// will come first in the sorted array.
+		// to the value, so this simple will do the trick - the shortest (i.e. added first)
+		// will come first in the "asc"-sorted array.
+		
 		// *** define a standalone function for compatibility with PHP < 5.3
 		if (! function_exists ( 'scd_padded_numeric_sort' )) {
 			function scd_padded_numeric_sort($a, $b) {
@@ -366,103 +556,24 @@ abstract class SmartCountdown_Helper {
 			}
 		}
 		
-		// Sort events by end time
 		foreach ( $timeline as &$group ) {
-			// sort - shortest events should come first, we sort by end time here
-			/*
-			 * '0'.$key trick solves the problem of multiple fully-overlapping events:
-			 * the first full-overlapping event is added by $key as is, the second - by '0'.$key,
-			 * the third - by '00'.$key and so on. BUT after sorting with a simple ksort
-			 * those values having more heading zeros come first, thus effectively reversing the order!
-			 * We are using a custom sort function here to get correct events order
-			 */
 			uksort ( $group, 'scd_padded_numeric_sort' );
 		}
 		
-		// Sort events by start time
+		// Sort groups
 		ksort ( $timeline, SORT_NUMERIC );
-		
-		// normally event import plugins will fetch only valid events,
-		// just in case the timeline is empty, we simulate "no events found"
-		if (empty ( $timeline )) {
-			$instance ['deadline'] = '';
-			return $instance;
+		if ($sort_external == 'desc') {
+			// revert order for 'desc' sort
+			$timeline = array_reverse ( $timeline, true );
 		}
 		
-		// here we have all events grouped and sorted by start time,
-		// each group is sorted by event duration (both sort orders - ASC)
-		
-		// get deadline timestamps
-		$start_times = array_keys ( $timeline );
-		
-		// if more than 1 group starts in the past we have to discard all
-		// except the last one
-		foreach ( $start_times as $i => $timeline_key ) {
-			if ($timeline_key < $now_ts && isset ( $start_times [$i + 1] ) && $start_times [$i + 1] < $now_ts) {
-				unset ( $timeline [$timeline_key] );
-			}
+		return $timeline;
+	}
+	private static function concatTitles(&$concat_title, $event) {
+		// implicitly reduce full duplicates
+		if (isset ( $event ['title'] ) && trim ( $event ['title'] ) != '') {
+			$concat_title [$event ['title']] = $event ['title'];
 		}
-		$start_times = array_keys ( $timeline );
-		
-		// at this point we need only fist two groups:
-		// the first one is our target deadline, and the next will
-		// provide countup limit if there are events in the first
-		// group that last after the second group start time
-		
-		$deadline_ts = $start_times [0];
-		if (isset ( $start_times [1] )) {
-			$max_countup_limit = $start_times [1] - $deadline_ts;
-		}
-		
-		$counter_events = reset ( $timeline );
-		
-		$countup_limit = null;
-		$concat_title = array ();
-		
-		$countdown_to_end_events = array ();
-		
-		foreach ( $counter_events as &$event ) {
-			if (isset ( $max_countup_limit ) && $event ['duration'] > $max_countup_limit) {
-				$event ['duration'] = $max_countup_limit;
-			}
-			
-			if (is_null ( $countup_limit ) || $countup_limit > $event ['duration']) {
-				$countup_limit = $event ['duration'];
-			}
-			
-			if (trim ( $event ['title'] ) != '') {
-				$concat_title [] = $event ['title'];
-			}
-			if (! empty ( $event ['is_countdown_to_end'] )) {
-				// we have met a countdown-to-end event
-				$countdown_to_end_events [] = $event;
-			}
-		}
-		
-		if (! empty ( $countdown_to_end_events )) { // at least one element is a "countdown-to-end"
-		                                           // in countdown-to-event-end mode we force event duration to zero
-			$instance ['countup_limit'] = 0;
-			// reconstruct concatenated title
-			$concat_title = array ();
-			foreach ( $countdown_to_end_events as $event ) {
-				if (trim ( $event ['title'] ) != '') {
-					$concat_title [] = $event ['title'];
-				}
-			}
-			$instance ['is_countdown_to_end'] = 1;
-		} else { // all elements are "event starts"
-			$instance ['countup_limit'] = $countup_limit;
-		}
-		// join titles to a string (may be empty string if no titles found)
-		$concat_title = implode ( ', ', $concat_title );
-		$instance ['imported_title'] = $concat_title;
-		
-		$deadline = new DateTime ();
-		$deadline->setTimestamp ( $deadline_ts );
-		$instance ['deadline'] = $deadline->format ( 'c' );
-		
-		unset ( $instance ['imported'] );
-		return $instance;
 	}
 	public static function getCounterHtml($instance) {
 		$layout = SmartCountdown_Helper::getCounterLayout ( $instance );
@@ -906,7 +1017,7 @@ abstract class SmartCountdown_Helper {
 	public static function importPluginsEnabled() {
 		$configs = array ();
 		$configs = apply_filters ( 'smartcountdownfx_get_import_configs', $configs );
-		if (empty( $configs ) ) {
+		if (empty ( $configs )) {
 			return false;
 		}
 		return true;

@@ -1,5 +1,5 @@
 /**
- * version 1.4.4
+ * version 1.4.5
  */
 (function($) {
 	var MILLIS_IN_DAY = 86400000;
@@ -20,6 +20,7 @@
 	var SUSPEND_THRESHOLD_RESTRICT_STEP = 50; // gradually decrease threshold by this value
 	
 	var WINDOW_RESIZE_EVENT_DELAY = 500; // avoid massive resize events
+	var SCD_SAFE_ADJUST_PX = 5; // responsive adjust safe margin - make required width bigger
 	
 	// global container for smart countdown objects
 	scds_container = {
@@ -55,6 +56,9 @@
 						scds_container.responsiveAdjust();
 					}, WINDOW_RESIZE_EVENT_DELAY));
 				});
+				// on the first run (timer hasn't been created yet) we
+				// add some easings to support existing animations
+				this.setupVelocityEasings();
 			}
 		},
 		remove : function(id) {
@@ -130,6 +134,37 @@
 					|| document.body.clientWidth;
 				counter.responsiveAdjust(width);
 			});
+		},
+		setupVelocityEasings : function() {
+			var VelocityContainer = window.Velocity || $.Velocity;
+
+			$.extend(VelocityContainer.Easings, {
+			    Back: function( p ) {
+			        return p * p * ( 3 * p - 2 );
+			    },
+			    Bounce: function ( p ) {
+			        var pow2,
+			            bounce = 4;
+
+			        while ( p < ( ( pow2 = Math.pow( 2, --bounce ) ) - 1 ) / 11 ) {}
+			        return 1 / Math.pow( 4, 3 - bounce ) - 7.5625 * Math.pow( ( pow2 * 3 - 2 ) / 22 - p, 2 );
+			    }
+			});
+			
+			$.each([ "Back", "Bounce" ], function( index, easeInName ) {
+
+			    var easeIn = VelocityContainer.Easings[easeInName];
+
+			    VelocityContainer.Easings[ "easeIn" + easeInName ] = easeIn;
+			    VelocityContainer.Easings[ "easeOut" + easeInName ] = function( p ) {
+			        return 1 - easeIn( 1 - p );
+			    };
+			    VelocityContainer.Easings[ "easeInOut" + easeInName ] = function( p ) {
+			        return p < 0.5 ?
+			            easeIn( p * 2 ) / 2 :
+			            1 - easeIn( p * -2 + 2 ) / 2;
+			    };
+			});
 		}
 	}
 	
@@ -186,10 +221,14 @@
 			this.options.original_title_before_down = this.options.title_before_down;
 			this.options.original_title_before_up = this.options.title_before_up;
 			
-			// backup countup limit from shortcode or widget settings. We will need this
-			// value when requesting next event. this.options.countup_limit will change
+			this.options.original_title_after_down = this.options.title_after_down;
+			this.options.original_title_after_up = this.options.title_after_up;
+			
+			// backup limit. We will need these
+			// values when requesting next event. limits will change
 			// during counter life to indicate the next query interval
 			this.options.original_countup_limit = this.options.countup_limit;
+			this.options.original_countdown_limit = this.options.countdown_limit;
 			
 			// backup deadline as set in configuration - it is converted to ISO format and
 			// if sent back to server to query next event in "customize preview" mode can
@@ -343,6 +382,13 @@
 			if(this.options.redirect_url != '') {
 				$('#' + this.options.id).hide();
 				window.location = this.options.redirect_url;
+				return;
+			}
+			
+			if(this.options.countdown_query_limit == 0) {
+				$('#' + this.options.id).hide();
+				this.queryNextEvent();
+				this.options.countup_limit = -1;
 				return;
 			}
 			
@@ -794,7 +840,10 @@
 			if(initDisplay) {
 				this.setElements(wrapper, values, hash_prefix, config);
 			}
-			this.animateElements(values, hash_prefix, groups);
+			if(values.prev != values.next) {
+				// only proceed with animation if the values differ
+				this.animateElements(values, hash_prefix, groups);
+			}
 		},
 		guessIncrValue : function(asset, index, digit_value, unit_value) {
 			var limit = this.guessDigitLimit(asset, index, digit_value, unit_value);
@@ -954,25 +1003,17 @@
 						}
 					}
 				} else {
-					// we have tweens defined. Proceed with animation. Do not animate
-					// elements that are currently being animated - prevent
-					// animations mess up on tab switch back and resume in some
-					// browsers
-					if($el.is(':animated')) {
-						// decrement elements-left count
+					// we have tweens defined. Proceed with animation. Stop running animation - prevent
+					// animations mess up on tab switch back and resume in some browsers
+					$el.velocity('stop');
+					
+					// actually start animation
+					$el.velocity(el.tweens.to, duration, transition, function() {
 						cur_element_index++;
 						if(cur_element_index >= elements_count) {
-							this.animateGroup(values, group_index + 1, prefix, groups);
+							self.animateGroup(values, group_index + 1, prefix, groups);
 						}
-					} else {
-						// actually start animation
-						$el.animate(el.tweens.to, duration, transition, function() {
-							cur_element_index++;
-							if(cur_element_index >= elements_count) {
-								self.animateGroup(values, group_index + 1, prefix, groups);
-							}
-						});
-					}
+					});
 				}
 			}
 			
@@ -1141,7 +1182,8 @@
 				counter_container.css('cursor', 'pointer');
 				counter_container.off('click');
 				counter_container.on('click', function() {
-					window.location = self.options.click_url;
+					// onclick - open in new window
+					window.open(self.options.click_url, '_blank');
 				});
 			} else {
 				counter_container.css('cursor', 'default');
@@ -1158,6 +1200,11 @@
 					counter_container.hide();
 				} else {
 					counter_container.show();
+				}
+				
+				if(this.options.countdown_query_limit > 0 && this.diff < this.options.countdown_query_limit  * MILLIS_IN_SECOND) {
+					this.queryNextEvent();
+					this.options.countup_limit = -1;
 				}
 			}
 			if(this.options.mode == 'up') {
@@ -1374,7 +1421,7 @@
 				this.resetAlignments(counter_container);
 				
 				// reset container font before starting measurments
-				counter_container.css('font-size', this.options.base_font_size);
+				counter_container.css('font-size', this.options.base_font_size + 'px');
 				
 				// restore original layout before measurement
 				var scale_preset = responsive[responsive.length - 1];
@@ -1388,10 +1435,9 @@
 				
 				if(is_wrapping.wrapped_width > 0) {
 					var container_width = counter_container.width();
-					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
-					
-					// $$$ Check why we have to use 0.95 k for scale???
-					scale = container_width / required_width * 0.95;
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width + SCD_SAFE_ADJUST_PX;
+
+					scale = container_width / required_width;
 				}
 
 				// check extreme case - wrapping digits in unit, do not allow this
@@ -1402,9 +1448,9 @@
 
 					if(is_wrapping.wrapped_width > 0) {
 						var container_width = $this.width();
-						var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+						var required_width = is_wrapping.row_width + is_wrapping.wrapped_width + SCD_SAFE_ADJUST_PX;
 						
-						var this_scale = container_width / required_width * 0.95;
+						var this_scale = container_width / required_width;
 						// only update current effective scale if we get a lower value here
 						if(this_scale < scale) {
 							scale = this_scale;
@@ -1432,7 +1478,7 @@
 				
 				// prepare to repeat measurement with updated layout - reset base font
 				scale = 1.0;
-				counter_container.css('font-size', this.options.base_font_size);
+				counter_container.css('font-size', this.options.base_font_size + 'px');
 				
 				// realign labels and measure units (for column layouts)
 				this.setRowVerticalAlign();
@@ -1442,18 +1488,17 @@
 				
 				if(is_wrapping.wrapped_width > 0) {
 					var container_width = counter_container.width();
-					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
-					
-					// $$$ Check why we have to use 0.95 k for scale???
-					scale = container_width / required_width * 0.95;
-					counter_container.css('font-size', this.options.base_font_size * scale);
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width + SCD_SAFE_ADJUST_PX;
+
+					scale = container_width / required_width;
+					counter_container.css('font-size', (this.options.base_font_size * scale) + 'px');
 					
 					// update layout for new base font size
 					this.setRowVerticalAlign();
 				}			
 			} else {
 				// prepare for next measurement if responsive feature is disabled
-				counter_container.css('font-size', this.options.base_font_size);
+				counter_container.css('font-size', this.options.base_font_size + 'px');
 			}
 			
 			// even if responsive feature is disabled we always check for digits wrapping and
@@ -1465,9 +1510,9 @@
 
 				if(is_wrapping.wrapped_width > 0) {
 					var container_width = $this.width();
-					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width;
+					var required_width = is_wrapping.row_width + is_wrapping.wrapped_width + SCD_SAFE_ADJUST_PX;
 					
-					var this_scale = container_width / required_width * 0.95;
+					var this_scale = container_width / required_width;
 					// only update current effective scale if we get a lower value here
 					if(this_scale < scale) {
 						scale = this_scale;
@@ -1477,7 +1522,7 @@
 			});
 			if(is_wrapped) {
 				// apply new calulated scale
-				counter_container.css('font-size', this.options.base_font_size * scale);
+				counter_container.css('font-size', (this.options.base_font_size * scale) + 'px');
 			}
 			// update layout for new base font size
 			this.setRowVerticalAlign();
@@ -1553,6 +1598,7 @@
 					queryData.customize_preview = 1;
 					queryData.deadline = this.options.original_deadline;
 					queryData.import_config = this.options.import_config || '';
+					queryData.countdown_to_end = this.options.countdown_to_end;
 					queryData.countdown_limit = this.options.countdown_limit;
 					// we have to add countup limit from original settings to query data.
 					queryData.countup_limit = this.options.original_countup_limit;
@@ -1576,6 +1622,11 @@
 							// also for events import plugins
 							
 							self.options.deadline = response.options.deadline;
+							
+							// restore original titles for down mode (could be replaced during coutner life with
+							// countdown-to-end titles
+							self.options.title_before_down = self.options.original_title_before_down;
+							self.options.title_after_down = self.options.original_title_after_down;
 							
 							// we append imported event title (if any) to counter titles
 							// or insert imported title if a placeholder found in original
@@ -1616,8 +1667,15 @@
 							if(response.options.is_countdown_to_end == 1) {
 								self.options.title_before_down = self.options.title_before_up;
 								self.options.title_after_down = self.options.title_after_up;
+								// in "countdown to end" mode we release countdown limit to allow
+								// mode "0:-2". We have a certain limitation here: it is not possible
+								// to configure CTE counter to appear N seconds before event end.
+								// only 2 options are supported - only show CTE mode or "auto" + CTE,
+								// i.e. "3600:-2" kind of modes are not implemented
+								self.options.countdown_limit = -1;
 							}
 							self.options.countup_limit = response.options.countup_limit;
+							self.options.countdown_query_limit = response.options.countdown_query_limit;
 							
 							if(response.options.deadline == '') {
 								// no next events. TODO: display message(?), etc.
